@@ -5,12 +5,9 @@
 
 #pragma once
 
-#include "targetver.h"
-
-#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
-// Windows Header Files
-#include <windows.h>
-
-
+#include <Eigen/Dense>
+#include <entt/entt.hpp>
 
 // reference additional headers your program requires here
+#include <cstdint>
+#include "pcg_random.hpp"
