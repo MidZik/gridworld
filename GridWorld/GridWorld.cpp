@@ -28,6 +28,8 @@ namespace GridWorld
 {
     class EntityManager
     {
+    private:
+        EntityId singleton_id = -1;
     public:
         registry reg;
 
@@ -37,35 +39,41 @@ namespace GridWorld
             return reg.view<C>();
         }
 
-        template <typename S>
-        S* get_singleton()
+        template <typename... S>
+        auto get_singletons()
         {
-            auto sview = view<S>();
-            if (sview.size() == 1)
-            {
-                return &sview.get(*(sview.begin()));
-            }
-            else
-            {
-                cerr << "Error with singleton components." << endl;
-                return NULL;
-            }
+            assert(singleton_id != -1);
+
+            return reg.try_get<S...>(singleton_id);
         }
 
         template <typename S>
         S* add_singleton()
         {
-            uint64_t eid = -1;
-            auto sview = view<S>();
-            if (sview.size() == 0)
+            assert(singleton_id != -1);
+            if (!reg.has<S>(singleton_id))
             {
-                eid = reg.create();
-                return &reg.assign<S>(eid);
+                return &reg.assign<S>(singleton_id);
             }
             else
             {
-                cerr << "Error with singleton components." << endl;
+                cerr << "Error adding singleton, singleton already exists." << endl;
                 return NULL;
+            }
+        }
+
+        /*
+        Creates 
+        */
+        void setup_singleton_entity()
+        {
+            if (singleton_id == -1)
+            {
+                singleton_id = reg.create();
+            }
+            else
+            {
+                cerr << "Err: Tried to create a singleton entity while one already exists." << endl;
             }
         }
     };
@@ -514,7 +522,7 @@ namespace GridWorld
 
         void movement(EntityManager& em)
         {
-            auto world = em.get_singleton<SWorld>();
+            auto world = em.get_singletons<SWorld>();
 
             auto view = em.reg.view<Moveable, Position>();
 
@@ -638,7 +646,7 @@ namespace GridWorld
     void rebuild_world(EntityManager& em)
     {
         auto position_view = em.reg.view<Position>();
-        SWorld* world = em.get_singleton<SWorld>();
+        SWorld* world = em.get_singletons<SWorld>();
         world->reset_world();
         for (EntityId eid : position_view)
         {
@@ -662,6 +670,7 @@ namespace GridWorld
         EntityManager* em = new EntityManager;
         registry& reg = em->reg;
 
+        em->setup_singleton_entity();
         em->add_singleton<SWorld>();
 
         for (auto i = 0; i < 10; i++)
@@ -683,15 +692,15 @@ namespace GridWorld
 
     void run_test(EntityManager& em)
     {
-        for (auto i = 0; i < 100000; i++)
+        for (auto i = 0; i < 1000000; i++)
         {
             System::simple_brain_calc(em);
             System::movement(em);
-            if (i % 100 == 0)
+            if (i % 100000 == 0)
             {
                 cout << i << endl;
             }
         }
-        cout << 100000 << endl;
+        cout << 1000000 << endl;
     }
 }
