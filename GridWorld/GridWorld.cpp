@@ -143,32 +143,35 @@ namespace GridWorld
         {
             virtual void create_entity() = 0;
         };
-        struct NewEntityQueue
+        struct SNewEntityQueue
         {
-            std::vector<NewEntityDef*> queue;
+            std::vector<NewEntityDef*> queue = std::vector<NewEntityDef*>();
+        };
+
+        struct SJudge
+        {
+            uint64_t next_judgement_tick = 50000;
+            uint64_t ticks_between_judgements = 50000;
         };
 
         struct Position
         {
-            int x;
-            int y;
+            int x = 0;
+            int y = 0;
         };
 
         struct Moveable
         {
-            int x_force;
-            int y_force;
+            int x_force = 0;
+            int y_force = 0;
         };
 
         struct Name
         {
-            std::string name;
+            std::string name = "";
         };
 
-        struct RNG
-        {
-            pcg32 rng;
-        };
+        typedef pcg32 RNG;
 
         using SynapseMat = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
         using NeuronMat = Eigen::Matrix<float, 1, Eigen::Dynamic>;
@@ -176,7 +179,7 @@ namespace GridWorld
         {
             std::vector<SynapseMat> synapses;
             std::vector<NeuronMat> neurons;
-            float child_mutation_chance = 0.5;
+            float child_mutation_chance = 0.5f;
             float child_mutation_strength = 0.2f;
 
             SimpleBrain()
@@ -247,15 +250,15 @@ namespace GridWorld
 
         struct _MovementInfo
         {
-            int map_index;
+            int map_index = -1;
             std::vector<_MovementInfo*> child_nodes;
-            _MovementInfo* parent_node;
-            bool is_entry_node;
-            EntityId eid;
-            Position* entity_position;
-            int net_force;
-            bool finalized;
-            _MovementInfo* accepted_child;
+            _MovementInfo* parent_node = NULL;
+            bool is_entry_node = false;
+            EntityId eid = -1;
+            Position* entity_position = NULL;
+            int net_force = 0;
+            bool finalized = false;
+            _MovementInfo* accepted_child = NULL;
         };
 
         std::unordered_map<int, _MovementInfo> movement_nodes; // Declared globally to keep in memory
@@ -580,6 +583,25 @@ namespace GridWorld
                 _relu(brain.neurons.back());
             }
         }
+
+        void random_movement(EntityManager& em)
+        {
+            auto random_mover_view = em.reg.view<RandomMover, Moveable, RNG>();
+
+            random_mover_view.each([](EntityId eid, RandomMover, Moveable& moveable, RNG& rng)
+            {
+                if (rng() % 2 == 0)
+                {
+                    moveable.y_force += rng() % 7 - 3;
+                }
+                else
+                {
+                    moveable.x_force += rng() % 7 - 3;
+                }
+            });
+        }
+
+        
     }
 
     using namespace Component;
@@ -613,7 +635,7 @@ namespace GridWorld
 
         reg.assign<SimpleBrainSeer>(eid);
 
-        auto rng = reg.assign<pcg32>(eid);
+        auto rng = reg.assign<RNG>(eid);
         rng.seed(seed, seq);
 
         reg.assign<Name>(eid, "x" + std::to_string(x) + "y" + std::to_string(y));
@@ -635,7 +657,7 @@ namespace GridWorld
 
         reg.assign<Predation>(eid);
 
-        auto rng = reg.assign<pcg32>(eid);
+        auto rng = reg.assign<RNG>(eid);
         rng.seed(seed, seq);
 
         reg.assign<Name>(eid, "x" + std::to_string(x) + "y" + std::to_string(y));
@@ -671,7 +693,15 @@ namespace GridWorld
         registry& reg = em->reg;
 
         em->setup_singleton_entity();
+
         em->add_singleton<SWorld>();
+
+        auto* judge = em->add_singleton<SJudge>();
+        judge->next_judgement_tick = 50000;
+        judge->ticks_between_judgements = 50000;
+
+        auto* rng = em->add_singleton<pcg32>();
+        rng->seed(123456789, 987654321);
 
         for (auto i = 0; i < 10; i++)
         {
@@ -695,6 +725,7 @@ namespace GridWorld
         for (auto i = 0; i < 1000000; i++)
         {
             System::simple_brain_calc(em);
+            System::random_movement(em);
             System::movement(em);
             if (i % 100000 == 0)
             {
