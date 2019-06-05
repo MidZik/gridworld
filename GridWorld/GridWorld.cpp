@@ -32,6 +32,7 @@ namespace GridWorld
         EntityId singleton_id = -1;
     public:
         registry reg;
+        uint64_t tick = 0;
 
         template <typename C>
         auto view()
@@ -219,7 +220,7 @@ namespace GridWorld
 
         struct Predation
         {
-            int no_predation_until_tick = 0;
+            uint64_t no_predation_until_tick = 0;
         };
 
         struct RandomMover
@@ -344,7 +345,7 @@ namespace GridWorld
                 // erase self from old parent if we had one
                 if (cur_movement_info->parent_node != NULL)
                 {
-                    auto parent_children = cur_movement_info->parent_node->child_nodes;
+                    auto& parent_children = cur_movement_info->parent_node->child_nodes;
                     parent_children.erase(remove(parent_children.begin(), parent_children.end(), cur_movement_info));
                 }
 
@@ -392,24 +393,24 @@ namespace GridWorld
             if (entry_node.parent_node != NULL)
             {
                 // cycle case, the entry node has a parent it wants to move to.
-                auto& previous_cycle_node = entry_node;
-                auto& current_cycle_node = *entry_node.parent_node;
+                auto* previous_cycle_node = &entry_node;
+                auto* current_cycle_node = entry_node.parent_node;
 
-                while (!current_cycle_node.finalized)
+                while (!current_cycle_node->finalized)
                 {
-                    current_cycle_node.accepted_child = &previous_cycle_node;
-                    current_cycle_node.finalized = true;
+                    current_cycle_node->accepted_child = previous_cycle_node;
+                    current_cycle_node->finalized = true;
 
-                    for (auto child : current_cycle_node.child_nodes)
+                    for (auto* child : current_cycle_node->child_nodes)
                     {
-                        if (child != &previous_cycle_node)
+                        if (child != previous_cycle_node)
                         {
                             traversal_queue.push(child);
                         }
                     }
 
                     previous_cycle_node = current_cycle_node;
-                    current_cycle_node = *current_cycle_node.parent_node;
+                    current_cycle_node = current_cycle_node->parent_node;
                 }
             }
             else if (entry_node.eid != -1)
@@ -418,7 +419,7 @@ namespace GridWorld
                 entry_node.accepted_child = NULL;
                 entry_node.finalized = true;
 
-                for (auto child : entry_node.child_nodes)
+                for (auto* child : entry_node.child_nodes)
                 {
                     traversal_queue.push(child);
                 }
@@ -429,7 +430,7 @@ namespace GridWorld
                 int highest_force = -1;
                 _MovementInfo* highest_child = NULL;
 
-                for (auto child : entry_node.child_nodes)
+                for (auto* child : entry_node.child_nodes)
                 {
                     if (child->net_force > highest_force)
                     {
@@ -456,10 +457,10 @@ namespace GridWorld
 
             while (!traversal_queue.empty())
             {
-                auto cur_node = traversal_queue.front();
+                auto* cur_node = traversal_queue.front();
                 traversal_queue.pop();
 
-                assert(cur_node->finalized);
+                assert(!cur_node->finalized);
 
                 if (cur_node->parent_node->accepted_child == cur_node)
                 {
@@ -467,7 +468,7 @@ namespace GridWorld
                     int highest_force = -1;
                     _MovementInfo* highest_child = NULL;
 
-                    for (auto child : cur_node->child_nodes)
+                    for (auto* child : cur_node->child_nodes)
                     {
                         if (child->net_force > highest_force)
                         {
@@ -490,7 +491,7 @@ namespace GridWorld
                     cur_node->accepted_child = NULL;
                     cur_node->finalized = true;
 
-                    for (auto child : cur_node->child_nodes)
+                    for (auto* child : cur_node->child_nodes)
                     {
                         traversal_queue.push(child);
                     }
@@ -502,22 +503,22 @@ namespace GridWorld
         {
             assert(entry_node.is_entry_node);
 
-            auto cur_node = entry_node;
-            int cur_map_index = cur_node.map_index;
+            auto* cur_node = &entry_node;
+            int cur_map_index = cur_node->map_index;
 
-            while (cur_node.accepted_child != NULL && world.map[cur_map_index] != cur_node.accepted_child->eid)
+            while (cur_node->accepted_child != NULL && world.map[cur_map_index] != cur_node->accepted_child->eid)
             {
-                world.map[cur_map_index] = cur_node.accepted_child->eid;
-                cur_node.accepted_child->entity_position->x = world.get_map_index_x(cur_map_index);
-                cur_node.accepted_child->entity_position->y = world.get_map_index_y(cur_map_index);
+                world.map[cur_map_index] = cur_node->accepted_child->eid;
+                cur_node->accepted_child->entity_position->x = world.get_map_index_x(cur_map_index);
+                cur_node->accepted_child->entity_position->y = world.get_map_index_y(cur_map_index);
 
-                cur_node = *cur_node.accepted_child;
-                cur_map_index = cur_node.map_index;
+                cur_node = cur_node->accepted_child;
+                cur_map_index = cur_node->map_index;
             }
 
             // special case: if any nodes were moved, we need to make sure the last node of the tree clears out its position if necessary 
             // (since it wasn't iterated over)
-            if (cur_node.accepted_child == NULL && &cur_node != &entry_node)
+            if (cur_node->accepted_child == NULL && cur_node != &entry_node)
             {
                 world.map[cur_map_index] = -1;
             }
@@ -525,15 +526,30 @@ namespace GridWorld
 
         void movement(EntityManager& em)
         {
-            auto world = em.get_singletons<SWorld>();
+            auto* world = em.get_singletons<SWorld>();
 
             auto view = em.reg.view<Moveable, Position>();
 
-            view.each([world](EntityId eid, auto& moveable, auto& position)
+            view.each([world](EntityId eid, Moveable& moveable, Position& position)
             {
                 _add_movement_info(eid, *world, moveable, position);
+
+                moveable.x_force = 0;
+                moveable.y_force = 0;
             });
 
+            for (auto entry_node : movement_entry_nodes)
+            {
+                _traverse_and_resolve_movement(*entry_node);
+            }
+
+            for (auto entry_node : movement_entry_nodes)
+            {
+                _traverse_and_execute_movement(*world, *entry_node);
+            }
+
+            movement_nodes.clear();
+            movement_entry_nodes.clear();
         }
 
 
@@ -584,6 +600,8 @@ namespace GridWorld
             }
         }
 
+        //// RANDOM MOVEMENT
+
         void random_movement(EntityManager& em)
         {
             auto random_mover_view = em.reg.view<RandomMover, Moveable, RNG>();
@@ -601,7 +619,69 @@ namespace GridWorld
             });
         }
 
-        
+        //// PREDATION
+        struct map_lookup_result
+        {
+            int x_offset = 0;
+            int y_offset = 0;
+            EntityId eid = -1;
+        };
+        void _get_entities_in_radius(SWorld& world, int x, int y, int radius, std::vector<map_lookup_result>& result)
+        {
+            result.clear();
+
+            for (int cur_y_offset = -radius; cur_y_offset <= radius; cur_y_offset++)
+            {
+                int cur_x_radius = radius - abs(cur_y_offset);
+                for (int cur_x_offset = -cur_x_radius; cur_x_offset <= cur_x_radius; cur_x_offset++)
+                {
+                    auto map_data = world.get_map_data(x + cur_x_offset, y + cur_y_offset);
+                    if (map_data != -1)
+                    {
+                        result.push_back({ cur_x_offset, cur_y_offset, map_data });
+                    }
+                }
+            }
+        }
+
+        void predation(EntityManager& em)
+        {
+            SWorld& world = *em.get_singletons<SWorld>();
+
+            auto predator_view = em.reg.view<Predation, Position, RNG>();
+            auto scorable_view = em.reg.view<Scorable>();
+
+            predator_view.each([&em, &world, scorable_view](EntityId eid, Predation& predation, Position& position, RNG& rng)
+            {
+                if (em.tick < predation.no_predation_until_tick)
+                {
+                    return;
+                }
+
+                std::vector<Scorable*> scorables_found;
+                std::vector<map_lookup_result> nearby_entities;
+
+                _get_entities_in_radius(world, position.x, position.y, 1, nearby_entities);
+
+                for (auto result : nearby_entities)
+                {
+                    if (scorable_view.contains(result.eid))
+                    {
+                        scorables_found.push_back(&scorable_view.get(result.eid));
+                    }
+                }
+
+                auto scorables_found_size = scorables_found.size();
+                if (scorables_found_size > 0)
+                {
+                    // At least one scorable has been found, reduce a random scorable's score
+                    int random_index = rng() % scorables_found_size;
+                    auto& scorable = *scorables_found[random_index];
+                    scorable.score -= 1;
+                    predation.no_predation_until_tick = em.tick + 5;
+                }
+            });
+        }
     }
 
     using namespace Component;
@@ -612,8 +692,19 @@ namespace GridWorld
 
         for (auto eid : view)
         {
-            auto &pos = view.get(eid);
+            auto& pos = view.get(eid);
             cout << pos.x << "," << pos.y << endl;
+        }
+    }
+
+    void print_scorables(registry &r)
+    {
+        auto view = r.view<Scorable>();
+
+        for (auto eid : view)
+        {
+            auto& scorable = view.get(eid);
+            cout << eid << ": " << scorable.score << endl;
         }
     }
 
@@ -710,8 +801,8 @@ namespace GridWorld
 
         for (auto i = 0; i < 10; i++)
         {
-            create_predator(*em, i + 1, i - 1, 246893 + 13 * i, 975869 + 17 * i);
-            create_predator(*em, i + 4, i - 4, 7774569 + 39 * i, 3882451 + 51 * i);
+            create_predator(*em, i + 2, i - 3, 246893 + 13 * i, 975869 + 17 * i);
+            create_predator(*em, i + 5, i - 7, 7774569 + 39 * i, 3882451 + 51 * i);
         }
 
         rebuild_world(*em);
@@ -719,19 +810,28 @@ namespace GridWorld
         print_coms(reg);
         return *em;
     }
-
+#ifdef _DEBUG
+#define PRINT_TICK 1000
+#define END_TICK 10000
+#else
+#define PRINT_TICK 100000
+#define END_TICK 1000000
+#endif
     void run_test(EntityManager& em)
     {
-        for (auto i = 0; i < 1000000; i++)
+        for (auto i = 0; i < END_TICK; i++)
         {
+            em.tick += 1;
             System::simple_brain_calc(em);
             System::random_movement(em);
             System::movement(em);
-            if (i % 100000 == 0)
+            System::predation(em);
+            if (i % PRINT_TICK == 0)
             {
                 cout << i << endl;
+                print_scorables(em.reg);
             }
         }
-        cout << 1000000 << endl;
+        cout << END_TICK << endl;
     }
 }
