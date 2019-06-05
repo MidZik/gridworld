@@ -2,8 +2,6 @@
 
 #define DllExport   __declspec( dllexport )
 
-
-
 namespace GridWorld
 {
     class EntityManager;

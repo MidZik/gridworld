@@ -169,7 +169,8 @@ namespace GridWorld
 
         struct Name
         {
-            std::string name = "";
+            std::string major_name = ""; // "family name"
+            std::string minor_name = ""; // "personal name"
         };
 
         typedef pcg32 RNG;
