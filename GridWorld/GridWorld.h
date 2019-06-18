@@ -1,6 +1,7 @@
 #pragma once
 
-#define DllExport   __declspec( dllexport )
+#define DllExport __declspec(dllexport)
+#define CDllExport extern "C" __declspec(dllexport)
 
 namespace GridWorld
 {

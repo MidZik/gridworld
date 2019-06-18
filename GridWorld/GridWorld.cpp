@@ -234,8 +234,6 @@ namespace GridWorld
         };
     }
 
-    
-
     namespace System
     {
         using namespace Component;
@@ -683,6 +681,61 @@ namespace GridWorld
                 }
             });
         }
+
+        //// SIMPLE BRAIN SEER SYSTEM
+        void _get_map_data_in_radius(SWorld& world, int x, int y, int radius, std::vector<map_lookup_result>& result)
+        {
+            result.clear();
+
+            for (int cur_y_offset = -radius; cur_y_offset <= radius; cur_y_offset++)
+            {
+                int cur_x_radius = radius - abs(cur_y_offset);
+                for (int cur_x_offset = -cur_x_radius; cur_x_offset <= cur_x_radius; cur_x_offset++)
+                {
+                    auto map_data = world.get_map_data(x + cur_x_offset, y + cur_y_offset);
+                    result.push_back({ cur_x_offset, cur_y_offset, map_data });
+                }
+            }
+        }
+        void simple_brain_seer(EntityManager& em)
+        {
+            SWorld& world = *em.get_singletons<SWorld>();
+
+            auto simple_brain_view = em.reg.view<SimpleBrain, SimpleBrainSeer, Position>();
+            auto predator_view = em.reg.view<Predation>();
+
+            simple_brain_view.each([&em, &world, predator_view](SimpleBrain& brain, SimpleBrainSeer& seer, Position& position) {
+                NeuronMat& input_neurons = brain.neurons[0];
+
+                int cur_neuron_offset = seer.neuron_offset;
+                std::vector<map_lookup_result> map_data;
+
+                _get_map_data_in_radius(world, position.x, position.y, seer.sight_radius, map_data);
+
+                for (auto result : map_data)
+                {
+                    if (result.eid == -1)
+                    {
+                        // nothing seen
+                        input_neurons(cur_neuron_offset) = 0;
+                        input_neurons(cur_neuron_offset + 1) = 0;
+                    }
+                    else if (predator_view.contains(result.eid))
+                    {
+                        // predator seen
+                        input_neurons(cur_neuron_offset) = 1;
+                        input_neurons(cur_neuron_offset + 1) = 0;
+                    }
+                    else
+                    {
+                        // non-predator seen
+                        input_neurons(cur_neuron_offset) = 0;
+                        input_neurons(cur_neuron_offset + 1) = 1;
+                    }
+                    cur_neuron_offset += 2; // iterate in sets of 2 (predator neuron + nonpredator neuron)
+                }
+            });
+        }
     }
 
     using namespace Component;
@@ -792,7 +845,7 @@ namespace GridWorld
         judge->next_judgement_tick = 50000;
         judge->ticks_between_judgements = 50000;
 
-        auto* rng = em->add_singleton<pcg32>();
+        auto* rng = em->add_singleton<RNG>();
         rng->seed(123456789, 987654321);
 
         for (auto i = 0; i < 10; i++)
