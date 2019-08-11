@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <queue>
 
+#include <pybind11/stl.h>
+
 using Eigen::MatrixXd;
 using namespace std;
 
@@ -23,6 +25,175 @@ int wrapi(int i, int lower_bound, int upper_bound)
     else
         return lower_bound + i;
 }
+
+namespace GridWorld::Component
+{
+    struct SWorld
+    {
+        int width = 20;
+        int height = 20;
+        EntityId* map = new EntityId[width * height];
+
+        void reset_world(int p_width, int p_height)
+        {
+            width = p_width;
+            height = p_height;
+            delete[] map;
+            map = new EntityId[width * height];
+            for (auto i = 0; i < width * height; i++)
+            {
+                map[i] = -1;
+            }
+        }
+
+        void reset_world()
+        {
+            reset_world(width, height);
+        }
+
+        EntityId get_map_data(int x, int y)
+        {
+            return map[get_map_index(x, y)];
+        }
+
+        void set_map_data(int x, int y, EntityId data)
+        {
+            map[get_map_index(x, y)] = data;
+        }
+
+        int get_map_index(int x, int y)
+        {
+            return normalize_y(y) * width + normalize_x(x);
+        }
+
+        int get_map_index_x(int map_index)
+        {
+            return map_index % width;
+        }
+
+        int get_map_index_y(int map_index)
+        {
+            return map_index / width;
+        }
+
+        int normalize_x(int x)
+        {
+            return wrapi(x, 0, width);
+        }
+
+        int normalize_y(int y)
+        {
+            return wrapi(y, 0, height);
+        }
+    };
+
+    class NewEntityDef
+    {
+        virtual void create_entity() = 0;
+    };
+    struct SNewEntityQueue
+    {
+        std::vector<NewEntityDef*> queue = std::vector<NewEntityDef*>();
+    };
+
+    struct SJudge
+    {
+        uint64_t next_judgement_tick = 50000;
+        uint64_t ticks_between_judgements = 50000;
+    };
+
+    struct Position
+    {
+        int x = 0;
+        int y = 0;
+    };
+
+    struct Moveable
+    {
+        int x_force = 0;
+        int y_force = 0;
+    };
+
+    struct Name
+    {
+        std::string major_name = ""; // "family name"
+        std::string minor_name = ""; // "personal name"
+    };
+
+    typedef pcg32 RNG;
+
+    using SynapseMat = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
+    using NeuronMat = Eigen::Matrix<float, 1, Eigen::Dynamic>;
+    struct SimpleBrain
+    {
+        std::vector<SynapseMat> synapses;
+        std::vector<NeuronMat> neurons;
+        float child_mutation_chance = 0.5f;
+        float child_mutation_strength = 0.2f;
+
+        SimpleBrain()
+        {
+            neurons.push_back(NeuronMat::Ones(27));
+            neurons.push_back(NeuronMat::Ones(9));
+            neurons.push_back(NeuronMat::Ones(4));
+
+            synapses.push_back(SynapseMat::Zero(27, 8));
+            synapses.push_back(SynapseMat::Zero(9, 4));
+        }
+
+        void init_brain(int neuron_counts[], int layers)
+        {
+            for (int i = 0; i < layers - 1; i++)
+            {
+                int in = neuron_counts[i] + 1;
+                int out = neuron_counts[i + 1];
+                neurons.push_back(NeuronMat::Ones(in));
+                synapses.push_back(SynapseMat::Zero(in, out));
+            }
+            // The final neuron count is output only, no bias neuron
+            neurons.push_back(NeuronMat::Ones(neuron_counts[layers - 1]));
+        }
+    };
+
+    struct SimpleBrainSeer
+    {
+        int neuron_offset = 1;
+        int sight_radius = 2;
+    };
+
+    struct SimpleBrainMover
+    {
+        int neuron_offset = 0;
+    };
+
+    struct Predation
+    {
+        uint64_t no_predation_until_tick = 0;
+    };
+
+    struct RandomMover
+    {
+    };
+
+    struct Scorable
+    {
+        int score = 0;
+    };
+}
+
+ENTT_NAMED_TYPE(GridWorld::Component::SWorld)
+ENTT_NAMED_TYPE(GridWorld::Component::Moveable)
+ENTT_NAMED_TYPE(GridWorld::Component::Name)
+ENTT_NAMED_TYPE(GridWorld::Component::Position)
+ENTT_NAMED_TYPE(GridWorld::Component::Predation)
+ENTT_NAMED_TYPE(GridWorld::Component::RandomMover)
+ENTT_NAMED_TYPE(GridWorld::Component::Scorable)
+ENTT_NAMED_TYPE(GridWorld::Component::RNG)
+ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrain)
+ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainMover)
+ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainSeer)
+ENTT_NAMED_TYPE(GridWorld::Component::SJudge)
+ENTT_NAMED_TYPE(GridWorld::Component::SNewEntityQueue)
 
 namespace GridWorld
 {
@@ -77,162 +248,49 @@ namespace GridWorld
                 cerr << "Err: Tried to create a singleton entity while one already exists." << endl;
             }
         }
+
+        auto get_matching_entities(vector<string> types)
+        {
+            vector<entt::hashed_string::hash_type> type_ids;
+            for (string s : types)
+            {
+                type_ids.push_back(entt::hashed_string::to_value(s.c_str()));
+            }
+            auto view = reg.runtime_view(type_ids.begin(), type_ids.end());
+            return vector(view.begin(), view.end());
+        }
+
+        template<typename... C> 
+        auto get_components(EntityId eid)
+        {
+            if (!reg.valid(eid))
+            {
+                throw pybind11::key_error("The entity doesn't exist.");
+            }
+
+            auto components = reg.try_get<C...>(eid);
+
+            if (components == nullptr)
+            {
+                throw pybind11::value_error("The entity doesn't have this component type.");
+            }
+            else
+            {
+                return components;
+            }
+        }
+
+        template<typename... C>
+        bool has_components(EntityId eid)
+        {
+            if (!reg.valid(eid))
+            {
+                throw pybind11::key_error("The entity doesn't exist.");
+            }
+
+            return reg.has<C...>(eid);
+        }
     };
-
-    namespace Component
-    {
-        struct SWorld
-        {
-            int width = 20;
-            int height = 20;
-            EntityId* map = new EntityId[width * height];
-
-            void reset_world(int p_width, int p_height)
-            {
-                width = p_width;
-                height = p_height;
-                delete[] map;
-                map = new EntityId[width * height];
-                for (auto i = 0; i < width * height; i++)
-                {
-                    map[i] = -1;
-                }
-            }
-
-            void reset_world()
-            {
-                reset_world(width, height);
-            }
-
-            EntityId get_map_data(int x, int y)
-            {
-                return map[get_map_index(x, y)];
-            }
-
-            void set_map_data(int x, int y, EntityId data)
-            {
-                map[get_map_index(x, y)] = data;
-            }
-
-            int get_map_index(int x, int y)
-            {
-                return normalize_y(y) * width + normalize_x(x);
-            }
-
-            int get_map_index_x(int map_index)
-            {
-                return map_index % width;
-            }
-
-            int get_map_index_y(int map_index)
-            {
-                return map_index / width;
-            }
-
-            int normalize_x(int x)
-            {
-                return wrapi(x, 0, width);
-            }
-
-            int normalize_y(int y)
-            {
-                return wrapi(y, 0, height);
-            }
-        };
-
-        class NewEntityDef
-        {
-            virtual void create_entity() = 0;
-        };
-        struct SNewEntityQueue
-        {
-            std::vector<NewEntityDef*> queue = std::vector<NewEntityDef*>();
-        };
-
-        struct SJudge
-        {
-            uint64_t next_judgement_tick = 50000;
-            uint64_t ticks_between_judgements = 50000;
-        };
-
-        struct Position
-        {
-            int x = 0;
-            int y = 0;
-        };
-
-        struct Moveable
-        {
-            int x_force = 0;
-            int y_force = 0;
-        };
-
-        struct Name
-        {
-            std::string major_name = ""; // "family name"
-            std::string minor_name = ""; // "personal name"
-        };
-
-        typedef pcg32 RNG;
-
-        using SynapseMat = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
-        using NeuronMat = Eigen::Matrix<float, 1, Eigen::Dynamic>;
-        struct SimpleBrain
-        {
-            std::vector<SynapseMat> synapses;
-            std::vector<NeuronMat> neurons;
-            float child_mutation_chance = 0.5f;
-            float child_mutation_strength = 0.2f;
-
-            SimpleBrain()
-            {
-                neurons.push_back(NeuronMat::Ones(27));
-                neurons.push_back(NeuronMat::Ones(9));
-                neurons.push_back(NeuronMat::Ones(4));
-
-                synapses.push_back(SynapseMat::Zero(27, 8));
-                synapses.push_back(SynapseMat::Zero(9, 4));
-            }
-
-            void init_brain(int neuron_counts[], int layers)
-            {
-                for (int i = 0; i < layers - 1; i++)
-                {
-                    int in = neuron_counts[i] + 1;
-                    int out = neuron_counts[i + 1];
-                    neurons.push_back(NeuronMat::Ones(in));
-                    synapses.push_back(SynapseMat::Zero(in, out));
-                }
-                // The final neuron count is output only, no bias neuron
-                neurons.push_back(NeuronMat::Ones(neuron_counts[layers - 1]));
-            }
-        };
-
-        struct SimpleBrainSeer
-        {
-            int neuron_offset = 1;
-            int sight_radius = 2;
-        };
-
-        struct SimpleBrainMover
-        {
-            int neuron_offset = 0;
-        };
-
-        struct Predation
-        {
-            uint64_t no_predation_until_tick = 0;
-        };
-
-        struct RandomMover
-        {
-        };
-
-        struct Scorable
-        {
-            int score = 0;
-        };
-    }
 
     namespace System
     {
@@ -864,6 +922,24 @@ namespace GridWorld
         print_coms(reg);
         return *em;
     }
+
+    void update(EntityManager& em)
+    {
+        em.tick += 1;
+        System::simple_brain_calc(em);
+        System::random_movement(em);
+        System::movement(em);
+        System::predation(em);
+    }
+
+    void multiupdate(EntityManager& em, int n)
+    {
+        for (; n > 0; n--)
+        {
+            update(em);
+        }
+    }
+
 #ifdef _DEBUG
 #define PRINT_TICK 1000
 #define END_TICK 10000
@@ -875,17 +951,114 @@ namespace GridWorld
     {
         for (auto i = 0; i < END_TICK; i++)
         {
-            em.tick += 1;
-            System::simple_brain_calc(em);
-            System::random_movement(em);
-            System::movement(em);
-            System::predation(em);
+            update(em);
             if (i % PRINT_TICK == 0)
             {
-                cout << i << endl;
+                cout << "Scorables after tick " << em.tick << endl;
                 print_scorables(em.reg);
             }
         }
         cout << END_TICK << endl;
     }
+}
+
+PYBIND11_MODULE(gridworld, m)
+{
+    namespace py = pybind11;
+    using namespace py::literals;
+    using namespace GridWorld;
+
+    m.doc() = "GridWorld module.";
+
+    py::class_<EntityManager>(m, "EntityManager")
+        .def_readwrite("tick", &EntityManager::tick)
+        .def("get_matching_entities", &EntityManager::get_matching_entities)
+        .def("get_Position", &EntityManager::get_components<Component::Moveable>, py::return_value_policy::reference)
+        .def("get_Position", &EntityManager::get_components<Component::Position>, py::return_value_policy::reference)
+        .def("get_Name", &EntityManager::get_components<Component::Name>, py::return_value_policy::reference)
+        .def("get_RNG", &EntityManager::get_components<Component::RNG>, py::return_value_policy::reference)
+        .def("get_Scorable", &EntityManager::get_components<Component::Scorable>, py::return_value_policy::reference)
+        .def("has_RandomMover", &EntityManager::has_components<Component::RandomMover>) // Tags such as this don't have component data to get, so instead you must use "has"
+        .def("get_SimpleBrain", &EntityManager::get_components<Component::SimpleBrain>, py::return_value_policy::reference)
+        .def("get_SimpleBrainSeer", &EntityManager::get_components<Component::SimpleBrainSeer>, py::return_value_policy::reference)
+        .def("get_SimpleBrainMover", &EntityManager::get_components<Component::SimpleBrainMover>, py::return_value_policy::reference)
+        .def("get_Predation", &EntityManager::get_components<Component::Predation>, py::return_value_policy::reference)
+        .def("get_singleton_SWorld", &EntityManager::get_singletons<Component::SWorld>, py::return_value_policy::reference)
+        ;
+
+    py::class_<Component::Position>(m, "Position")
+        .def_readwrite("x", &Component::Position::x)
+        .def_readwrite("y", &Component::Position::y)
+        ;
+    py::class_<Component::Moveable>(m, "Moveable")
+        .def_readwrite("x_force", &Component::Moveable::x_force)
+        .def_readwrite("y_force", &Component::Moveable::x_force)
+        ;
+    py::class_<Component::Name>(m, "Name")
+        .def_readwrite("major_name", &Component::Name::major_name)
+        .def_readwrite("minor_name", &Component::Name::minor_name)
+        ;
+
+    auto get_rng_state = [](const Component::RNG& rng)
+    {
+        stringstream ss;
+        ss << rng;
+        return ss.str();
+    };
+
+    auto load_rng_state = [](Component::RNG& rng, string& state)
+    {
+        stringstream ss;
+        ss << state;
+        ss >> rng;
+    };
+
+    auto rand = [](Component::RNG& rng)
+    {
+        return rng();
+    };
+
+    py::class_<Component::RNG>(m, "RNG")
+        .def(py::init<>())
+        .def("get_state", get_rng_state)
+        .def("set_state", load_rng_state)
+        .def("rand", rand)
+        ;
+
+    py::class_<Component::Scorable>(m, "Scorable")
+        .def_readwrite("score", &Component::Scorable::score)
+        ;
+
+    py::class_<Component::RandomMover>(m, "RandomMover")
+        ;
+
+    py::class_<Component::SimpleBrain>(m, "SimpleBrain")
+        .def_readonly("synapses", &Component::SimpleBrain::synapses)
+        .def_readonly("neurons", &Component::SimpleBrain::neurons)
+        .def_readwrite("child_mutation_chance", &Component::SimpleBrain::child_mutation_chance)
+        .def_readwrite("child_mutation_strength", &Component::SimpleBrain::child_mutation_strength)
+        ;
+    
+    py::class_<Component::SimpleBrainSeer>(m, "SimpleBrainSeer")
+        .def_readwrite("neuron_offset", &Component::SimpleBrainSeer::neuron_offset)
+        .def_readwrite("sight_radius", &Component::SimpleBrainSeer::sight_radius)
+        ;
+
+    py::class_<Component::SimpleBrainMover>(m, "SimpleBrainMover")
+        .def_readwrite("neuron_offset", &Component::SimpleBrainMover::neuron_offset)
+        ;
+
+    py::class_<Component::Predation>(m, "Predation")
+        .def_readwrite("no_predation_until_tick", &Component::Predation::no_predation_until_tick)
+        ;
+
+    py::class_<Component::SWorld>(m, "SWorld")
+        .def_readonly("width", &Component::SWorld::width)
+        .def_readonly("height", &Component::SWorld::height)
+        .def_readonly("map", &Component::SWorld::map)
+        ;
+
+    m.def("create_test_em", &create_test_em, py::return_value_policy::take_ownership);
+    m.def("run_test", &run_test);
+    m.def("multiupdate", &multiupdate);
 }
