@@ -873,8 +873,7 @@ namespace GridWorld
             EntityId existing_data = world->get_map_data(pos.x, pos.y);
             if (existing_data != -1)
             {
-                cerr << "Failed to rebuild world, multiple entities share the same position." << endl;
-                break;
+                throw exception("Failed to rebuild world, multiple entities share the same position.");
             }
             else
             {
@@ -1050,4 +1049,5 @@ PYBIND11_MODULE(gridworld, m)
     m.def("create_test_em", &create_test_em, py::return_value_policy::take_ownership);
     m.def("run_test", &run_test);
     m.def("multiupdate", &multiupdate);
+    m.def("rebuild_world", &rebuild_world);
 }
