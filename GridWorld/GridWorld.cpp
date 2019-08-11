@@ -96,12 +96,6 @@ namespace GridWorld::Component
         std::vector<NewEntityDef*> queue = std::vector<NewEntityDef*>();
     };
 
-    struct SJudge
-    {
-        uint64_t next_judgement_tick = 50000;
-        uint64_t ticks_between_judgements = 50000;
-    };
-
     struct Position
     {
         int x = 0;
@@ -192,7 +186,6 @@ ENTT_NAMED_TYPE(GridWorld::Component::RNG)
 ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrain)
 ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainMover)
 ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainSeer)
-ENTT_NAMED_TYPE(GridWorld::Component::SJudge)
 ENTT_NAMED_TYPE(GridWorld::Component::SNewEntityQueue)
 
 namespace GridWorld
@@ -898,10 +891,6 @@ namespace GridWorld
         em->setup_singleton_entity();
 
         em->add_singleton<SWorld>();
-
-        auto* judge = em->add_singleton<SJudge>();
-        judge->next_judgement_tick = 50000;
-        judge->ticks_between_judgements = 50000;
 
         auto* rng = em->add_singleton<RNG>();
         rng->seed(123456789, 987654321);
