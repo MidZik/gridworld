@@ -283,6 +283,28 @@ namespace GridWorld
 
             return reg.has<C...>(eid);
         }
+
+        template<typename C>
+        decltype(auto) assign_or_replace(EntityId eid)
+        {
+            return reg.assign_or_replace<C>(eid);
+        }
+
+        template<typename C>
+        void remove(EntityId eid)
+        {
+            reg.remove<C>(eid);
+        }
+
+        void destroy(EntityId eid)
+        {
+            reg.destroy(eid);
+        }
+
+        EntityId create()
+        {
+            return reg.create();
+        }
     };
 
     namespace System
@@ -950,6 +972,16 @@ namespace GridWorld
     }
 }
 
+#define GRIDWORLD_EM_COMPONENT_FUNCTIONS(com) \
+        .def("get_" #com, &EntityManager::get_components<Component::com>, py::return_value_policy::reference)                 \
+        .def("has_" #com, &EntityManager::has_components<Component::com>)                                                     \
+        .def("assign_or_replace_" #com, &EntityManager::assign_or_replace<Component::com>, py::return_value_policy::reference)\
+        .def("remove_" #com, &EntityManager::remove<Component::com>)
+#define GRIDWORLD_EM_TAG_FUNCTIONS(tag) \
+        .def("has_" #tag, &EntityManager::has_components<Component::tag>)                                                     \
+        .def("assign_or_replace_" #tag, &EntityManager::assign_or_replace<Component::tag>, py::return_value_policy::reference)\
+        .def("remove_" #tag, &EntityManager::remove<Component::tag>)
+
 PYBIND11_MODULE(gridworld, m)
 {
     namespace py = pybind11;
@@ -961,17 +993,20 @@ PYBIND11_MODULE(gridworld, m)
     py::class_<EntityManager>(m, "EntityManager")
         .def_readwrite("tick", &EntityManager::tick)
         .def("get_matching_entities", &EntityManager::get_matching_entities)
-        .def("get_Position", &EntityManager::get_components<Component::Moveable>, py::return_value_policy::reference)
-        .def("get_Position", &EntityManager::get_components<Component::Position>, py::return_value_policy::reference)
-        .def("get_Name", &EntityManager::get_components<Component::Name>, py::return_value_policy::reference)
-        .def("get_RNG", &EntityManager::get_components<Component::RNG>, py::return_value_policy::reference)
-        .def("get_Scorable", &EntityManager::get_components<Component::Scorable>, py::return_value_policy::reference)
-        .def("has_RandomMover", &EntityManager::has_components<Component::RandomMover>) // Tags such as this don't have component data to get, so instead you must use "has"
-        .def("get_SimpleBrain", &EntityManager::get_components<Component::SimpleBrain>, py::return_value_policy::reference)
-        .def("get_SimpleBrainSeer", &EntityManager::get_components<Component::SimpleBrainSeer>, py::return_value_policy::reference)
-        .def("get_SimpleBrainMover", &EntityManager::get_components<Component::SimpleBrainMover>, py::return_value_policy::reference)
-        .def("get_Predation", &EntityManager::get_components<Component::Predation>, py::return_value_policy::reference)
-        .def("get_singleton_SWorld", &EntityManager::get_singletons<Component::SWorld>, py::return_value_policy::reference)
+        .def("create", &EntityManager::create)
+        .def("destroy", &EntityManager::destroy)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Moveable)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Position)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Name)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(RNG)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Scorable)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrain)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainSeer)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainSeer)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainMover)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Predation)
+        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SWorld)
+        GRIDWORLD_EM_TAG_FUNCTIONS(RandomMover)
         ;
 
     py::class_<Component::Position>(m, "Position")
