@@ -198,6 +198,11 @@ namespace GridWorld
         registry reg;
         uint64_t tick = 0;
 
+        EntityManager()
+        {
+            singleton_id = reg.create();
+        }
+
         template <typename C>
         auto view()
         {
@@ -207,39 +212,25 @@ namespace GridWorld
         template <typename... S>
         auto get_singletons()
         {
-            assert(singleton_id != -1);
-
             return reg.try_get<S...>(singleton_id);
         }
 
-        template <typename S>
-        S* add_singleton()
+        template<typename... S>
+        bool has_singletons()
         {
-            assert(singleton_id != -1);
-            if (!reg.has<S>(singleton_id))
-            {
-                return &reg.assign<S>(singleton_id);
-            }
-            else
-            {
-                cerr << "Error adding singleton, singleton already exists." << endl;
-                return NULL;
-            }
+            return reg.has<S...>(singleton_id);
         }
 
-        /*
-        Creates 
-        */
-        void setup_singleton_entity()
+        template <typename S>
+        decltype(auto) assign_or_replace_singleton()
         {
-            if (singleton_id == -1)
-            {
-                singleton_id = reg.create();
-            }
-            else
-            {
-                cerr << "Err: Tried to create a singleton entity while one already exists." << endl;
-            }
+            return &reg.assign_or_replace<S>(singleton_id);
+        }
+
+        template<typename S>
+        void remove_singleton()
+        {
+            reg.remove<S>(singleton_id);
         }
 
         auto get_matching_entities(vector<string> types)
@@ -909,11 +900,9 @@ namespace GridWorld
         EntityManager* em = new EntityManager;
         registry& reg = em->reg;
 
-        em->setup_singleton_entity();
+        em->assign_or_replace_singleton<SWorld>();
 
-        em->add_singleton<SWorld>();
-
-        auto* rng = em->add_singleton<RNG>();
+        auto* rng = em->assign_or_replace_singleton<RNG>();
         rng->seed(123456789, 987654321);
 
         for (auto i = 0; i < 10; i++)
@@ -977,6 +966,11 @@ namespace GridWorld
         .def("has_" #com, &EntityManager::has_components<Component::com>)                                                     \
         .def("assign_or_replace_" #com, &EntityManager::assign_or_replace<Component::com>, py::return_value_policy::reference)\
         .def("remove_" #com, &EntityManager::remove<Component::com>)
+#define GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(scom) \
+        .def("get_singleton_" #scom, &EntityManager::get_singletons<Component::scom>, py::return_value_policy::reference)                           \
+        .def("has_singleton_" #scom, &EntityManager::has_singletons<Component::scom>)                                                               \
+        .def("assign_or_replace_singleton_" #scom, &EntityManager::assign_or_replace_singleton<Component::scom>, py::return_value_policy::reference)\
+        .def("remove_singleton_" #scom, &EntityManager::remove_singleton<Component::scom>)
 #define GRIDWORLD_EM_TAG_FUNCTIONS(tag) \
         .def("has_" #tag, &EntityManager::has_components<Component::tag>)                                                     \
         .def("assign_or_replace_" #tag, &EntityManager::assign_or_replace<Component::tag>, py::return_value_policy::reference)\
@@ -991,6 +985,7 @@ PYBIND11_MODULE(gridworld, m)
     m.doc() = "GridWorld module.";
 
     py::class_<EntityManager>(m, "EntityManager")
+        .def(py::init<>())
         .def_readwrite("tick", &EntityManager::tick)
         .def("get_matching_entities", &EntityManager::get_matching_entities)
         .def("create", &EntityManager::create)
@@ -1005,7 +1000,8 @@ PYBIND11_MODULE(gridworld, m)
         GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainSeer)
         GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainMover)
         GRIDWORLD_EM_COMPONENT_FUNCTIONS(Predation)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SWorld)
+        GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(SWorld)
+        GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(RNG)
         GRIDWORLD_EM_TAG_FUNCTIONS(RandomMover)
         ;
 
@@ -1045,6 +1041,7 @@ PYBIND11_MODULE(gridworld, m)
         .def(py::init<>())
         .def("get_state", get_rng_state)
         .def("set_state", load_rng_state)
+        .def("seed", &Component::RNG::seed<uint64_t&, uint64_t&>)
         .def("rand", rand)
         ;
 
@@ -1079,6 +1076,7 @@ PYBIND11_MODULE(gridworld, m)
         .def_readonly("width", &Component::SWorld::width)
         .def_readonly("height", &Component::SWorld::height)
         .def_readonly("map", &Component::SWorld::map)
+        .def("reset_world", py::overload_cast<int, int>(&Component::SWorld::reset_world))
         ;
 
     m.def("create_test_em", &create_test_em, py::return_value_policy::take_ownership);
