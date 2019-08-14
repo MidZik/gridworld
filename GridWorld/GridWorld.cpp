@@ -1091,9 +1091,15 @@ PYBIND11_MODULE(gridworld, m)
         ss >> rng;
     };
 
-    auto rand = [](Component::RNG& rng)
+    auto randi = [](Component::RNG& rng)
     {
         return rng();
+    };
+
+    // Simple function to return a random double [0, 1)
+    auto randd = [](Component::RNG& rng)
+    {
+        return ldexp(rng(), -32);
     };
 
     py::class_<Component::RNG>(m, "RNG")
@@ -1101,7 +1107,8 @@ PYBIND11_MODULE(gridworld, m)
         .def("get_state", get_rng_state)
         .def("set_state", load_rng_state)
         .def("seed", &Component::RNG::seed<uint64_t&, uint64_t&>)
-        .def("rand", rand)
+        .def("randi", randi)
+        .def("randd", randd)
         ;
 
     py::class_<Component::Scorable>(m, "Scorable")
