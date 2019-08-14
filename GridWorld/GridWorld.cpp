@@ -9,6 +9,7 @@
 #include <queue>
 
 #include <pybind11/stl.h>
+#include <pybind11/eigen.h>
 
 using Eigen::MatrixXd;
 using namespace std;
@@ -42,7 +43,7 @@ namespace GridWorld::Component
             map = new EntityId[width * height];
             for (auto i = 0; i < width * height; i++)
             {
-                map[i] = -1;
+                map[i] = entt::null;
             }
         }
 
@@ -318,7 +319,7 @@ namespace GridWorld
             std::vector<_MovementInfo*> child_nodes;
             _MovementInfo* parent_node = NULL;
             bool is_entry_node = false;
-            EntityId eid = -1;
+            EntityId eid = entt::null;
             Position* entity_position = NULL;
             int net_force = 0;
             bool finalized = false;
@@ -476,7 +477,7 @@ namespace GridWorld
                     current_cycle_node = current_cycle_node->parent_node;
                 }
             }
-            else if (entry_node.eid != -1)
+            else if (entry_node.eid != entt::null)
             {
                 // reject children case (entity exists and is not moving)
                 entry_node.accepted_child = NULL;
@@ -583,7 +584,7 @@ namespace GridWorld
             // (since it wasn't iterated over)
             if (cur_node->accepted_child == NULL && cur_node != &entry_node)
             {
-                world.map[cur_map_index] = -1;
+                world.map[cur_map_index] = entt::null;
             }
         }
 
@@ -687,7 +688,7 @@ namespace GridWorld
         {
             int x_offset = 0;
             int y_offset = 0;
-            EntityId eid = -1;
+            EntityId eid = entt::null;
         };
         void _get_entities_in_radius(SWorld& world, int x, int y, int radius, std::vector<map_lookup_result>& result)
         {
@@ -699,7 +700,7 @@ namespace GridWorld
                 for (int cur_x_offset = -cur_x_radius; cur_x_offset <= cur_x_radius; cur_x_offset++)
                 {
                     auto map_data = world.get_map_data(x + cur_x_offset, y + cur_y_offset);
-                    if (map_data != -1)
+                    if (map_data != entt::null)
                     {
                         result.push_back({ cur_x_offset, cur_y_offset, map_data });
                     }
@@ -778,7 +779,7 @@ namespace GridWorld
 
                 for (auto result : map_data)
                 {
-                    if (result.eid == -1)
+                    if (result.eid == entt::null)
                     {
                         // nothing seen
                         input_neurons(cur_neuron_offset) = 0;
@@ -798,6 +799,22 @@ namespace GridWorld
                     }
                     cur_neuron_offset += 2; // iterate in sets of 2 (predator neuron + nonpredator neuron)
                 }
+            });
+        }
+
+        //// SIMPLE BRAIN MOVER SYSTEM
+        void simple_brain_mover(EntityManager& em)
+        {
+            auto simple_brain_view = em.reg.view<SimpleBrain, SimpleBrainMover, Moveable>();
+
+            simple_brain_view.each([&em](SimpleBrain& brain, SimpleBrainMover& mover, Moveable& moveable) {
+                int neuron_offset = mover.neuron_offset;
+                auto& output_neurons = brain.neurons.back();
+
+                moveable.x_force += 4 * int(output_neurons(0, neuron_offset));
+                moveable.x_force -= 4 * int(output_neurons(0, neuron_offset + 1));
+                moveable.y_force += 4 * int(output_neurons(0, neuron_offset + 2));
+                moveable.y_force -= 4 * int(output_neurons(0, neuron_offset + 3));
             });
         }
     }
@@ -884,7 +901,7 @@ namespace GridWorld
             auto& pos = position_view.get(eid);
 
             EntityId existing_data = world->get_map_data(pos.x, pos.y);
-            if (existing_data != -1)
+            if (existing_data != entt::null)
             {
                 throw exception("Failed to rebuild world, multiple entities share the same position.");
             }
@@ -925,7 +942,9 @@ namespace GridWorld
     void update(EntityManager& em)
     {
         em.tick += 1;
+        System::simple_brain_seer(em);
         System::simple_brain_calc(em);
+        System::simple_brain_mover(em);
         System::random_movement(em);
         System::movement(em);
         System::predation(em);
@@ -958,6 +977,37 @@ namespace GridWorld
             }
         }
         cout << END_TICK << endl;
+    }
+
+#define GRIDWORLD_DUP(com) \
+if (em.reg.has<Component::com>(eid))\
+{\
+    auto& c = em.reg.get<Component::com>(eid);\
+    em.reg.assign<Component::com>(dup_eid, c);\
+};
+#define GRIDWORLD_DUP_TAG(tag) \
+if (em.reg.has<Component::tag>(eid))\
+{\
+    em.reg.assign<Component::tag>(dup_eid);\
+};
+
+    EntityId duplicate_entity(EntityManager &em, EntityId eid)
+    {
+        EntityId dup_eid = em.reg.create();
+
+        GRIDWORLD_DUP(Moveable)
+        GRIDWORLD_DUP(Position)
+        GRIDWORLD_DUP(Name)
+        GRIDWORLD_DUP(RNG)
+        GRIDWORLD_DUP(Scorable)
+        GRIDWORLD_DUP(SimpleBrain)
+        GRIDWORLD_DUP(SimpleBrainSeer)
+        GRIDWORLD_DUP(SimpleBrainSeer)
+        GRIDWORLD_DUP(SimpleBrainMover)
+        GRIDWORLD_DUP(Predation)
+        GRIDWORLD_DUP_TAG(RandomMover)
+
+        return dup_eid;
     }
 }
 
@@ -1075,7 +1125,8 @@ PYBIND11_MODULE(gridworld, m)
     py::class_<Component::SWorld>(m, "SWorld")
         .def_readonly("width", &Component::SWorld::width)
         .def_readonly("height", &Component::SWorld::height)
-        .def_readonly("map", &Component::SWorld::map)
+        .def("get_map_data", &Component::SWorld::get_map_data)
+        .def("set_map_data", &Component::SWorld::set_map_data)
         .def("reset_world", py::overload_cast<int, int>(&Component::SWorld::reset_world))
         ;
 
@@ -1083,4 +1134,6 @@ PYBIND11_MODULE(gridworld, m)
     m.def("run_test", &run_test);
     m.def("multiupdate", &multiupdate);
     m.def("rebuild_world", &rebuild_world);
+    m.def("duplicate_entity", &duplicate_entity);
+    m.attr("null") = py::int_((EntityId)entt::null);
 }
