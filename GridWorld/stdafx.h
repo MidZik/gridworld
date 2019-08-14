@@ -5,6 +5,7 @@
 
 #pragma once
 
+#define _SILENCE_CXX17_ADAPTOR_TYPEDEFS_DEPRECATION_WARNING
 #include <Eigen/Dense>
 #include <entt/entt.hpp>
 

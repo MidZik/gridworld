@@ -9,6 +9,7 @@
 #include <queue>
 
 #include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 #include <pybind11/eigen.h>
 
 using Eigen::MatrixXd;
@@ -1026,6 +1027,11 @@ if (em.reg.has<Component::tag>(eid))\
         .def("assign_or_replace_" #tag, &EntityManager::assign_or_replace<Component::tag>, py::return_value_policy::reference)\
         .def("remove_" #tag, &EntityManager::remove<Component::tag>)
 
+// Need to make component vectors opaque, otherwise pybind11
+// will create copies of them to turn them into pure python data containers.
+PYBIND11_MAKE_OPAQUE(vector<GridWorld::Component::SynapseMat>)
+PYBIND11_MAKE_OPAQUE(vector<GridWorld::Component::NeuronMat>)
+
 PYBIND11_MODULE(gridworld, m)
 {
     namespace py = pybind11;
@@ -1033,6 +1039,9 @@ PYBIND11_MODULE(gridworld, m)
     using namespace GridWorld;
 
     m.doc() = "GridWorld module.";
+
+    py::bind_vector<vector<GridWorld::Component::SynapseMat>>(m, "VectorSynapseMat", py::module_local(false));
+    py::bind_vector<vector<GridWorld::Component::NeuronMat>>(m, "VectorNeuronMat", py::module_local(false));
 
     py::class_<EntityManager>(m, "EntityManager")
         .def(py::init<>())
@@ -1103,8 +1112,8 @@ PYBIND11_MODULE(gridworld, m)
         ;
 
     py::class_<Component::SimpleBrain>(m, "SimpleBrain")
-        .def_readonly("synapses", &Component::SimpleBrain::synapses)
-        .def_readonly("neurons", &Component::SimpleBrain::neurons)
+        .def_readwrite("synapses", &Component::SimpleBrain::synapses)
+        .def_readwrite("neurons", &Component::SimpleBrain::neurons)
         .def_readwrite("child_mutation_chance", &Component::SimpleBrain::child_mutation_chance)
         .def_readwrite("child_mutation_strength", &Component::SimpleBrain::child_mutation_strength)
         ;
