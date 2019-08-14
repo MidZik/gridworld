@@ -1013,18 +1013,18 @@ if (em.reg.has<Component::tag>(eid))\
 }
 
 #define GRIDWORLD_EM_COMPONENT_FUNCTIONS(com) \
-        .def("get_" #com, &EntityManager::get_components<Component::com>, py::return_value_policy::reference)                 \
+        .def("get_" #com, &EntityManager::get_components<Component::com>, py::return_value_policy::reference_internal)                 \
         .def("has_" #com, &EntityManager::has_components<Component::com>)                                                     \
-        .def("assign_or_replace_" #com, &EntityManager::assign_or_replace<Component::com>, py::return_value_policy::reference)\
+        .def("assign_or_replace_" #com, &EntityManager::assign_or_replace<Component::com>, py::return_value_policy::reference_internal)\
         .def("remove_" #com, &EntityManager::remove<Component::com>)
 #define GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(scom) \
-        .def("get_singleton_" #scom, &EntityManager::get_singletons<Component::scom>, py::return_value_policy::reference)                           \
+        .def("get_singleton_" #scom, &EntityManager::get_singletons<Component::scom>, py::return_value_policy::reference_internal)                           \
         .def("has_singleton_" #scom, &EntityManager::has_singletons<Component::scom>)                                                               \
-        .def("assign_or_replace_singleton_" #scom, &EntityManager::assign_or_replace_singleton<Component::scom>, py::return_value_policy::reference)\
+        .def("assign_or_replace_singleton_" #scom, &EntityManager::assign_or_replace_singleton<Component::scom>, py::return_value_policy::reference_internal)\
         .def("remove_singleton_" #scom, &EntityManager::remove_singleton<Component::scom>)
 #define GRIDWORLD_EM_TAG_FUNCTIONS(tag) \
         .def("has_" #tag, &EntityManager::has_components<Component::tag>)                                                     \
-        .def("assign_or_replace_" #tag, &EntityManager::assign_or_replace<Component::tag>, py::return_value_policy::reference)\
+        .def("assign_or_replace_" #tag, &EntityManager::assign_or_replace<Component::tag>, py::return_value_policy::reference_internal)\
         .def("remove_" #tag, &EntityManager::remove<Component::tag>)
 
 // Need to make component vectors opaque, otherwise pybind11
