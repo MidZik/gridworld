@@ -14,15 +14,12 @@ namespace GridWorld
 
     class EntityManager
     {
-    private:
-        EntityId singleton_id = -1;
     public:
         registry reg;
         uint64_t tick = 0;
 
         EntityManager()
         {
-            singleton_id = reg.create();
         }
 
         template <typename C>
@@ -31,28 +28,37 @@ namespace GridWorld
             return reg.view<C>();
         }
 
-        template <typename... S>
-        auto get_singletons()
-        {
-            return reg.try_get<S...>(singleton_id);
-        }
-
-        template<typename... S>
-        bool has_singletons()
-        {
-            return reg.has<S...>(singleton_id);
-        }
-
         template <typename S>
-        decltype(auto) assign_or_replace_singleton()
+        S& get_singleton()
         {
-            return reg.assign_or_replace<S>(singleton_id);
+            S* singleton = reg.try_ctx<S>();
+
+            if (singleton == nullptr)
+            {
+                throw pybind11::value_error("Given singleton does not exist.");
+            }
+            else
+            {
+                return *singleton;
+            }
         }
 
         template<typename S>
-        void remove_singleton()
+        bool has_singleton()
         {
-            reg.remove<S>(singleton_id);
+            return reg.try_ctx<S>() == nullptr;
+        }
+
+        template <typename S>
+        S& set_singleton()
+        {
+            return reg.set<S>();
+        }
+
+        template<typename S>
+        void unset_singleton()
+        {
+            reg.unset<S>();
         }
 
         auto get_matching_entities(vector<string> types)

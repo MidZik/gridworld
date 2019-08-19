@@ -309,13 +309,13 @@ namespace GridWorld
 
         void movement(EntityManager& em)
         {
-            auto* world = em.get_singletons<SWorld>();
+            auto& world = em.get_singleton<SWorld>();
 
             auto view = em.reg.view<Moveable, Position>();
 
-            view.each([world](EntityId eid, Moveable& moveable, Position& position)
+            view.each([&world](EntityId eid, Moveable& moveable, Position& position)
             {
-                _add_movement_info(eid, *world, moveable, position);
+                _add_movement_info(eid, world, moveable, position);
 
                 moveable.x_force = 0;
                 moveable.y_force = 0;
@@ -328,7 +328,7 @@ namespace GridWorld
 
             for (auto entry_node : movement_entry_nodes)
             {
-                _traverse_and_execute_movement(*world, *entry_node);
+                _traverse_and_execute_movement(world, *entry_node);
             }
 
             movement_nodes.clear();
@@ -429,7 +429,7 @@ namespace GridWorld
 
         void predation(EntityManager& em)
         {
-            SWorld& world = *em.get_singletons<SWorld>();
+            SWorld& world = em.get_singleton<SWorld>();
 
             auto predator_view = em.reg.view<Predation, Position, RNG>();
             auto scorable_view = em.reg.view<Scorable>();
@@ -483,7 +483,7 @@ namespace GridWorld
         }
         void simple_brain_seer(EntityManager& em)
         {
-            SWorld& world = *em.get_singletons<SWorld>();
+            SWorld& world = em.get_singleton<SWorld>();
 
             auto simple_brain_view = em.reg.view<SimpleBrain, SimpleBrainSeer, Position>();
             auto predator_view = em.reg.view<Predation>();
@@ -613,32 +613,32 @@ namespace GridWorld
     void rebuild_world(EntityManager& em)
     {
         auto position_view = em.reg.view<Position>();
-        SWorld* world = em.get_singletons<SWorld>();
-        world->reset_world();
+        SWorld& world = em.get_singleton<SWorld>();
+        world.reset_world();
         for (EntityId eid : position_view)
         {
             auto& pos = position_view.get(eid);
 
-            EntityId existing_data = world->get_map_data(pos.x, pos.y);
+            EntityId existing_data = world.get_map_data(pos.x, pos.y);
             if (existing_data != entt::null)
             {
                 throw exception("Failed to rebuild world, multiple entities share the same position.");
             }
             else
             {
-                world->set_map_data(pos.x, pos.y, eid);
+                world.set_map_data(pos.x, pos.y, eid);
             }
         }
     }
 
     EntityManager& create_test_em()
     {
-        EntityManager* em = new EntityManager;
+        EntityManager* em = new EntityManager();
         registry& reg = em->reg;
 
-        em->assign_or_replace_singleton<SWorld>();
+        em->set_singleton<SWorld>();
 
-        auto& rng = em->assign_or_replace_singleton<RNG>();
+        auto& rng = em->set_singleton<RNG>();
         rng.seed(123456789, 987654321);
 
         for (auto i = 0; i < 10; i++)
