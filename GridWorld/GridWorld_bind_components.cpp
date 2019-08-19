@@ -3,12 +3,19 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/eigen.h>
+
+PYBIND11_MAKE_OPAQUE(std::vector<GridWorld::Component::SynapseMat>)
+PYBIND11_MAKE_OPAQUE(std::vector<GridWorld::Component::NeuronMat>)
 
 namespace py = pybind11;
 using namespace GridWorld;
 
 void bind_components_to_python_module(py::module& m)
 {
+    py::bind_vector<vector<GridWorld::Component::SynapseMat>>(m, "VectorSynapseMat", py::module_local(false));
+    py::bind_vector<vector<GridWorld::Component::NeuronMat>>(m, "VectorNeuronMat", py::module_local(false));
+
     py::class_<Component::Position>(m, "Position")
         .def_readwrite("x", &Component::Position::x)
         .def_readwrite("y", &Component::Position::y)

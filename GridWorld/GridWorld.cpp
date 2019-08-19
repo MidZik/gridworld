@@ -11,7 +11,6 @@
 
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
-#include <pybind11/eigen.h>
 
 using Eigen::MatrixXd;
 using namespace std;
@@ -730,11 +729,6 @@ if (em.reg.has<Component::tag>(eid))\
     }
 }
 
-// Need to make component vectors opaque, otherwise pybind11
-// will create copies of them to turn them into pure python data containers.
-PYBIND11_MAKE_OPAQUE(vector<GridWorld::Component::SynapseMat>)
-PYBIND11_MAKE_OPAQUE(vector<GridWorld::Component::NeuronMat>)
-
 // Forward declaration of python binding functions
 namespace py = pybind11;
 void bind_components_to_python_module(py::module&);
@@ -746,9 +740,6 @@ PYBIND11_MODULE(gridworld, m)
     using namespace GridWorld;
 
     m.doc() = "GridWorld module.";
-
-    py::bind_vector<vector<GridWorld::Component::SynapseMat>>(m, "VectorSynapseMat", py::module_local(false));
-    py::bind_vector<vector<GridWorld::Component::NeuronMat>>(m, "VectorNeuronMat", py::module_local(false));
 
     auto entity_manager_class = py::class_<EntityManager>(m, "EntityManager")
         .def(py::init<>())
