@@ -30,9 +30,15 @@
     <ClInclude Include="pcg_uint128.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="components.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GridWorld_bind_components.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GridWorld.cpp">

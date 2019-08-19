@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include "GridWorld.h"
+#include "components.h"
 #include <iostream>
 #include <set>
 #include <algorithm>
@@ -15,291 +16,8 @@
 using Eigen::MatrixXd;
 using namespace std;
 
-using EntityId = uint64_t;
-using registry = entt::basic_registry<EntityId>;
-
-int wrapi(int i, int lower_bound, int upper_bound)
-{
-    int range = upper_bound - lower_bound;
-    i = ((i - lower_bound) % range);
-    if (i < 0)
-        return upper_bound + i;
-    else
-        return lower_bound + i;
-}
-
-namespace GridWorld::Component
-{
-    struct SWorld
-    {
-        int width = 20;
-        int height = 20;
-        EntityId* map = new EntityId[width * height];
-
-        void reset_world(int p_width, int p_height)
-        {
-            width = p_width;
-            height = p_height;
-            delete[] map;
-            map = new EntityId[width * height];
-            for (auto i = 0; i < width * height; i++)
-            {
-                map[i] = entt::null;
-            }
-        }
-
-        void reset_world()
-        {
-            reset_world(width, height);
-        }
-
-        EntityId get_map_data(int x, int y)
-        {
-            return map[get_map_index(x, y)];
-        }
-
-        void set_map_data(int x, int y, EntityId data)
-        {
-            map[get_map_index(x, y)] = data;
-        }
-
-        int get_map_index(int x, int y)
-        {
-            return normalize_y(y) * width + normalize_x(x);
-        }
-
-        int get_map_index_x(int map_index)
-        {
-            return map_index % width;
-        }
-
-        int get_map_index_y(int map_index)
-        {
-            return map_index / width;
-        }
-
-        int normalize_x(int x)
-        {
-            return wrapi(x, 0, width);
-        }
-
-        int normalize_y(int y)
-        {
-            return wrapi(y, 0, height);
-        }
-    };
-
-    class NewEntityDef
-    {
-        virtual void create_entity() = 0;
-    };
-    struct SNewEntityQueue
-    {
-        std::vector<NewEntityDef*> queue = std::vector<NewEntityDef*>();
-    };
-
-    struct Position
-    {
-        int x = 0;
-        int y = 0;
-    };
-
-    struct Moveable
-    {
-        int x_force = 0;
-        int y_force = 0;
-    };
-
-    struct Name
-    {
-        std::string major_name = ""; // "family name"
-        std::string minor_name = ""; // "personal name"
-    };
-
-    typedef pcg32 RNG;
-
-    using SynapseMat = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
-    using NeuronMat = Eigen::Matrix<float, 1, Eigen::Dynamic>;
-    struct SimpleBrain
-    {
-        std::vector<SynapseMat> synapses;
-        std::vector<NeuronMat> neurons;
-        float child_mutation_chance = 0.5f;
-        float child_mutation_strength = 0.2f;
-
-        SimpleBrain()
-        {
-            neurons.push_back(NeuronMat::Ones(27));
-            neurons.push_back(NeuronMat::Ones(9));
-            neurons.push_back(NeuronMat::Ones(4));
-
-            synapses.push_back(SynapseMat::Zero(27, 8));
-            synapses.push_back(SynapseMat::Zero(9, 4));
-        }
-
-        void init_brain(int neuron_counts[], int layers)
-        {
-            for (int i = 0; i < layers - 1; i++)
-            {
-                int in = neuron_counts[i] + 1;
-                int out = neuron_counts[i + 1];
-                neurons.push_back(NeuronMat::Ones(in));
-                synapses.push_back(SynapseMat::Zero(in, out));
-            }
-            // The final neuron count is output only, no bias neuron
-            neurons.push_back(NeuronMat::Ones(neuron_counts[layers - 1]));
-        }
-    };
-
-    struct SimpleBrainSeer
-    {
-        int neuron_offset = 1;
-        int sight_radius = 2;
-    };
-
-    struct SimpleBrainMover
-    {
-        int neuron_offset = 0;
-    };
-
-    struct Predation
-    {
-        uint64_t no_predation_until_tick = 0;
-    };
-
-    struct RandomMover
-    {
-    };
-
-    struct Scorable
-    {
-        int score = 0;
-    };
-}
-
-ENTT_NAMED_TYPE(GridWorld::Component::SWorld)
-ENTT_NAMED_TYPE(GridWorld::Component::Moveable)
-ENTT_NAMED_TYPE(GridWorld::Component::Name)
-ENTT_NAMED_TYPE(GridWorld::Component::Position)
-ENTT_NAMED_TYPE(GridWorld::Component::Predation)
-ENTT_NAMED_TYPE(GridWorld::Component::RandomMover)
-ENTT_NAMED_TYPE(GridWorld::Component::Scorable)
-ENTT_NAMED_TYPE(GridWorld::Component::RNG)
-ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrain)
-ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainMover)
-ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainSeer)
-ENTT_NAMED_TYPE(GridWorld::Component::SNewEntityQueue)
-
 namespace GridWorld
 {
-    class EntityManager
-    {
-    private:
-        EntityId singleton_id = -1;
-    public:
-        registry reg;
-        uint64_t tick = 0;
-
-        EntityManager()
-        {
-            singleton_id = reg.create();
-        }
-
-        template <typename C>
-        auto view()
-        {
-            return reg.view<C>();
-        }
-
-        template <typename... S>
-        auto get_singletons()
-        {
-            return reg.try_get<S...>(singleton_id);
-        }
-
-        template<typename... S>
-        bool has_singletons()
-        {
-            return reg.has<S...>(singleton_id);
-        }
-
-        template <typename S>
-        decltype(auto) assign_or_replace_singleton()
-        {
-            return &reg.assign_or_replace<S>(singleton_id);
-        }
-
-        template<typename S>
-        void remove_singleton()
-        {
-            reg.remove<S>(singleton_id);
-        }
-
-        auto get_matching_entities(vector<string> types)
-        {
-            vector<entt::hashed_string::hash_type> type_ids;
-            for (string s : types)
-            {
-                type_ids.push_back(entt::hashed_string::to_value(s.c_str()));
-            }
-            auto view = reg.runtime_view(type_ids.begin(), type_ids.end());
-            return vector(view.begin(), view.end());
-        }
-
-        template<typename... C> 
-        auto get_components(EntityId eid)
-        {
-            if (!reg.valid(eid))
-            {
-                throw pybind11::key_error("The entity doesn't exist.");
-            }
-
-            auto components = reg.try_get<C...>(eid);
-
-            if (components == nullptr)
-            {
-                throw pybind11::value_error("The entity doesn't have this component type.");
-            }
-            else
-            {
-                return components;
-            }
-        }
-
-        template<typename... C>
-        bool has_components(EntityId eid)
-        {
-            if (!reg.valid(eid))
-            {
-                throw pybind11::key_error("The entity doesn't exist.");
-            }
-
-            return reg.has<C...>(eid);
-        }
-
-        template<typename C>
-        decltype(auto) assign_or_replace(EntityId eid)
-        {
-            return reg.assign_or_replace<C>(eid);
-        }
-
-        template<typename C>
-        void remove(EntityId eid)
-        {
-            reg.remove<C>(eid);
-        }
-
-        void destroy(EntityId eid)
-        {
-            reg.destroy(eid);
-        }
-
-        EntityId create()
-        {
-            return reg.create();
-        }
-    };
-
     namespace System
     {
         using namespace Component;
@@ -920,8 +638,8 @@ namespace GridWorld
 
         em->assign_or_replace_singleton<SWorld>();
 
-        auto* rng = em->assign_or_replace_singleton<RNG>();
-        rng->seed(123456789, 987654321);
+        auto& rng = em->assign_or_replace_singleton<RNG>();
+        rng.seed(123456789, 987654321);
 
         for (auto i = 0; i < 10; i++)
         {
@@ -1012,29 +730,18 @@ if (em.reg.has<Component::tag>(eid))\
     }
 }
 
-#define GRIDWORLD_EM_COMPONENT_FUNCTIONS(com) \
-        .def("get_" #com, &EntityManager::get_components<Component::com>, py::return_value_policy::reference_internal)                 \
-        .def("has_" #com, &EntityManager::has_components<Component::com>)                                                     \
-        .def("assign_or_replace_" #com, &EntityManager::assign_or_replace<Component::com>, py::return_value_policy::reference_internal)\
-        .def("remove_" #com, &EntityManager::remove<Component::com>)
-#define GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(scom) \
-        .def("get_singleton_" #scom, &EntityManager::get_singletons<Component::scom>, py::return_value_policy::reference_internal)                           \
-        .def("has_singleton_" #scom, &EntityManager::has_singletons<Component::scom>)                                                               \
-        .def("assign_or_replace_singleton_" #scom, &EntityManager::assign_or_replace_singleton<Component::scom>, py::return_value_policy::reference_internal)\
-        .def("remove_singleton_" #scom, &EntityManager::remove_singleton<Component::scom>)
-#define GRIDWORLD_EM_TAG_FUNCTIONS(tag) \
-        .def("has_" #tag, &EntityManager::has_components<Component::tag>)                                                     \
-        .def("assign_or_replace_" #tag, &EntityManager::assign_or_replace<Component::tag>, py::return_value_policy::reference_internal)\
-        .def("remove_" #tag, &EntityManager::remove<Component::tag>)
-
 // Need to make component vectors opaque, otherwise pybind11
 // will create copies of them to turn them into pure python data containers.
 PYBIND11_MAKE_OPAQUE(vector<GridWorld::Component::SynapseMat>)
 PYBIND11_MAKE_OPAQUE(vector<GridWorld::Component::NeuronMat>)
 
+// Forward declaration of python binding functions
+namespace py = pybind11;
+void bind_components_to_python_module(py::module&);
+void bind_components_to_entity_manager(py::class_<GridWorld::EntityManager>&);
+
 PYBIND11_MODULE(gridworld, m)
 {
-    namespace py = pybind11;
     using namespace py::literals;
     using namespace GridWorld;
 
@@ -1043,108 +750,16 @@ PYBIND11_MODULE(gridworld, m)
     py::bind_vector<vector<GridWorld::Component::SynapseMat>>(m, "VectorSynapseMat", py::module_local(false));
     py::bind_vector<vector<GridWorld::Component::NeuronMat>>(m, "VectorNeuronMat", py::module_local(false));
 
-    py::class_<EntityManager>(m, "EntityManager")
+    auto entity_manager_class = py::class_<EntityManager>(m, "EntityManager")
         .def(py::init<>())
         .def_readwrite("tick", &EntityManager::tick)
         .def("get_matching_entities", &EntityManager::get_matching_entities)
         .def("create", &EntityManager::create)
         .def("destroy", &EntityManager::destroy)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Moveable)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Position)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Name)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(RNG)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Scorable)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrain)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainSeer)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainSeer)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainMover)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(Predation)
-        GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(SWorld)
-        GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(RNG)
-        GRIDWORLD_EM_TAG_FUNCTIONS(RandomMover)
         ;
 
-    py::class_<Component::Position>(m, "Position")
-        .def_readwrite("x", &Component::Position::x)
-        .def_readwrite("y", &Component::Position::y)
-        ;
-    py::class_<Component::Moveable>(m, "Moveable")
-        .def_readwrite("x_force", &Component::Moveable::x_force)
-        .def_readwrite("y_force", &Component::Moveable::x_force)
-        ;
-    py::class_<Component::Name>(m, "Name")
-        .def_readwrite("major_name", &Component::Name::major_name)
-        .def_readwrite("minor_name", &Component::Name::minor_name)
-        ;
-
-    auto get_rng_state = [](const Component::RNG& rng)
-    {
-        stringstream ss;
-        ss << rng;
-        return ss.str();
-    };
-
-    auto load_rng_state = [](Component::RNG& rng, string& state)
-    {
-        stringstream ss;
-        ss << state;
-        ss >> rng;
-    };
-
-    auto randi = [](Component::RNG& rng)
-    {
-        return rng();
-    };
-
-    // Simple function to return a random double [0, 1)
-    auto randd = [](Component::RNG& rng)
-    {
-        return ldexp(rng(), -32);
-    };
-
-    py::class_<Component::RNG>(m, "RNG")
-        .def(py::init<>())
-        .def("get_state", get_rng_state)
-        .def("set_state", load_rng_state)
-        .def("seed", &Component::RNG::seed<uint64_t&, uint64_t&>)
-        .def("randi", randi)
-        .def("randd", randd)
-        ;
-
-    py::class_<Component::Scorable>(m, "Scorable")
-        .def_readwrite("score", &Component::Scorable::score)
-        ;
-
-    py::class_<Component::RandomMover>(m, "RandomMover")
-        ;
-
-    py::class_<Component::SimpleBrain>(m, "SimpleBrain")
-        .def_readwrite("synapses", &Component::SimpleBrain::synapses)
-        .def_readwrite("neurons", &Component::SimpleBrain::neurons)
-        .def_readwrite("child_mutation_chance", &Component::SimpleBrain::child_mutation_chance)
-        .def_readwrite("child_mutation_strength", &Component::SimpleBrain::child_mutation_strength)
-        ;
-    
-    py::class_<Component::SimpleBrainSeer>(m, "SimpleBrainSeer")
-        .def_readwrite("neuron_offset", &Component::SimpleBrainSeer::neuron_offset)
-        .def_readwrite("sight_radius", &Component::SimpleBrainSeer::sight_radius)
-        ;
-
-    py::class_<Component::SimpleBrainMover>(m, "SimpleBrainMover")
-        .def_readwrite("neuron_offset", &Component::SimpleBrainMover::neuron_offset)
-        ;
-
-    py::class_<Component::Predation>(m, "Predation")
-        .def_readwrite("no_predation_until_tick", &Component::Predation::no_predation_until_tick)
-        ;
-
-    py::class_<Component::SWorld>(m, "SWorld")
-        .def_readonly("width", &Component::SWorld::width)
-        .def_readonly("height", &Component::SWorld::height)
-        .def("get_map_data", &Component::SWorld::get_map_data)
-        .def("set_map_data", &Component::SWorld::set_map_data)
-        .def("reset_world", py::overload_cast<int, int>(&Component::SWorld::reset_world))
-        ;
+    bind_components_to_python_module(m);
+    bind_components_to_entity_manager(entity_manager_class);
 
     m.def("create_test_em", &create_test_em, py::return_value_policy::take_ownership);
     m.def("run_test", &run_test);
