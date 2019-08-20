@@ -605,6 +605,7 @@ if (em.reg.has<Component::tag>(eid))\
         GRIDWORLD_DUP(SimpleBrainSeer)
         GRIDWORLD_DUP(SimpleBrainMover)
         GRIDWORLD_DUP(Predation)
+        GRIDWORLD_DUP(PyMeta)
         GRIDWORLD_DUP_TAG(RandomMover)
 
         return dup_eid;
