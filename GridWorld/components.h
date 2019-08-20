@@ -3,6 +3,7 @@
 #include "GridWorld.h"
 #include "pcg_random.hpp"
 #include <Eigen/Dense>
+#include <pybind11/pybind11.h>
 
 static int wrapi(int i, int lower_bound, int upper_bound)
 {
@@ -161,6 +162,8 @@ namespace GridWorld::Component
     {
         int score = 0;
     };
+
+    typedef pybind11::dict PyMeta;
 }
 
 ENTT_NAMED_TYPE(GridWorld::Component::SWorld)
@@ -175,3 +178,4 @@ ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrain)
 ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainMover)
 ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainSeer)
 ENTT_NAMED_TYPE(GridWorld::Component::SNewEntityQueue)
+ENTT_NAMED_TYPE(GridWorld::Component::PyMeta)
