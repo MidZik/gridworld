@@ -539,76 +539,6 @@ namespace GridWorld
 
     using namespace Component;
 
-    void print_coms(registry &r)
-    {
-        auto view = r.view<Component::Position>();
-
-        for (auto eid : view)
-        {
-            auto& pos = view.get(eid);
-            cout << pos.x << "," << pos.y << endl;
-        }
-    }
-
-    void print_scorables(registry &r)
-    {
-        auto view = r.view<Scorable>();
-
-        for (auto eid : view)
-        {
-            auto& scorable = view.get(eid);
-            cout << eid << ": " << scorable.score << endl;
-        }
-    }
-
-    EntityId create_brain_entity(EntityManager& em, int x, int y, uint64_t seed, uint64_t seq)
-    {
-        registry &reg = em.reg;
-
-        EntityId eid = reg.create();
-
-        reg.assign<Position>(eid, x, y);
-
-        reg.assign<Moveable>(eid);
-
-        reg.assign<Scorable>(eid);
-
-        reg.assign<SimpleBrain>(eid);
-
-        reg.assign<SimpleBrainMover>(eid);
-
-        reg.assign<SimpleBrainSeer>(eid);
-
-        auto rng = reg.assign<RNG>(eid);
-        rng.seed(seed, seq);
-
-        reg.assign<Name>(eid, "x" + std::to_string(x) + "y" + std::to_string(y));
-
-        return eid;
-    }
-
-    EntityId create_predator(EntityManager& em, int x, int y, uint64_t seed, uint64_t seq)
-    {
-        registry &reg = em.reg;
-
-        EntityId eid = reg.create();
-
-        reg.assign<Position>(eid, x, y);
-
-        reg.assign<Moveable>(eid);
-
-        reg.assign<RandomMover>(eid);
-
-        reg.assign<Predation>(eid);
-
-        auto rng = reg.assign<RNG>(eid);
-        rng.seed(seed, seq);
-
-        reg.assign<Name>(eid, "x" + std::to_string(x) + "y" + std::to_string(y));
-
-        return eid;
-    }
-
     void rebuild_world(EntityManager& em)
     {
         auto position_view = em.reg.view<Position>();
@@ -630,33 +560,6 @@ namespace GridWorld
         }
     }
 
-    EntityManager& create_test_em()
-    {
-        EntityManager* em = new EntityManager();
-        registry& reg = em->reg;
-
-        em->set_singleton<SWorld>();
-
-        auto& rng = em->set_singleton<RNG>();
-        rng.seed(123456789, 987654321);
-
-        for (auto i = 0; i < 10; i++)
-        {
-            create_brain_entity(*em, i, i, 13579 + i, 97531 + i);
-        }
-
-        for (auto i = 0; i < 10; i++)
-        {
-            create_predator(*em, i + 2, i - 3, 246893 + 13 * i, 975869 + 17 * i);
-            create_predator(*em, i + 5, i - 7, 7774569 + 39 * i, 3882451 + 51 * i);
-        }
-
-        rebuild_world(*em);
-
-        print_coms(reg);
-        return *em;
-    }
-
     void update(EntityManager& em)
     {
         em.tick += 1;
@@ -674,27 +577,6 @@ namespace GridWorld
         {
             update(em);
         }
-    }
-
-#ifdef _DEBUG
-#define PRINT_TICK 1000
-#define END_TICK 10000
-#else
-#define PRINT_TICK 100000
-#define END_TICK 1000000
-#endif
-    void run_test(EntityManager& em)
-    {
-        for (auto i = 0; i < END_TICK; i++)
-        {
-            update(em);
-            if (i % PRINT_TICK == 0)
-            {
-                cout << "Scorables after tick " << em.tick << endl;
-                print_scorables(em.reg);
-            }
-        }
-        cout << END_TICK << endl;
     }
 
 #define GRIDWORLD_DUP(com) \
@@ -752,8 +634,6 @@ PYBIND11_MODULE(gridworld, m)
     bind_components_to_python_module(m);
     bind_components_to_entity_manager(entity_manager_class);
 
-    m.def("create_test_em", &create_test_em, py::return_value_policy::take_ownership);
-    m.def("run_test", &run_test);
     m.def("multiupdate", &multiupdate);
     m.def("rebuild_world", &rebuild_world);
     m.def("duplicate_entity", &duplicate_entity);

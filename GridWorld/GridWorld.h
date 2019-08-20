@@ -125,8 +125,4 @@ namespace GridWorld
             return reg.create();
         }
     };
-
-    DllExport EntityManager& create_test_em();
-
-    DllExport void run_test(EntityManager& em);
 }
