@@ -635,7 +635,7 @@ PYBIND11_MODULE(gridworld, m)
     bind_components_to_python_module(m);
     bind_components_to_entity_manager(entity_manager_class);
 
-    m.def("multiupdate", &multiupdate);
+    m.def("multiupdate", &multiupdate, py::call_guard<py::gil_scoped_release>());
     m.def("rebuild_world", &rebuild_world);
     m.def("duplicate_entity", &duplicate_entity);
     m.attr("null") = py::int_((EntityId)entt::null);
