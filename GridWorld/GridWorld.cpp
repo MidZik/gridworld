@@ -44,8 +44,11 @@ namespace GridWorld
             _MovementInfo* accepted_child = NULL;
         };
 
-        std::unordered_map<int, _MovementInfo> movement_nodes; // Declared globally to keep in memory
-        std::set<_MovementInfo*> movement_entry_nodes;
+        using movement_node_map = std::unordered_map<int, _MovementInfo>;
+        using movement_node_set = std::set<_MovementInfo*>;
+
+        thread_local movement_node_map movement_nodes; // Declared globally to keep in memory
+        thread_local movement_node_set movement_entry_nodes;
 
         void _add_movement_info(EntityId eid, SWorld& world, Moveable& moveable, Position& position)
         {
