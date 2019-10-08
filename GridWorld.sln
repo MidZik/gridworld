@@ -5,8 +5,6 @@ VisualStudioVersion = 15.0.28307.645
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GridWorld", "GridWorld\GridWorld.vcxproj", "{2672491C-E399-4441-A404-07876B8E4840}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "GridWorldRunner", "GridWorldRunner\GridWorldRunner.vcxproj", "{761E8968-F1E9-4F66-B025-24272B6FBD68}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,12 +19,6 @@ Global
 		{2672491C-E399-4441-A404-07876B8E4840}.Release|x64.ActiveCfg = Release|x64
 		{2672491C-E399-4441-A404-07876B8E4840}.Release|x64.Build.0 = Release|x64
 		{2672491C-E399-4441-A404-07876B8E4840}.Release|x86.ActiveCfg = Release|x64
-		{761E8968-F1E9-4F66-B025-24272B6FBD68}.Debug|x64.ActiveCfg = Debug|x64
-		{761E8968-F1E9-4F66-B025-24272B6FBD68}.Debug|x64.Build.0 = Debug|x64
-		{761E8968-F1E9-4F66-B025-24272B6FBD68}.Debug|x86.ActiveCfg = Debug|x64
-		{761E8968-F1E9-4F66-B025-24272B6FBD68}.Release|x64.ActiveCfg = Release|x64
-		{761E8968-F1E9-4F66-B025-24272B6FBD68}.Release|x64.Build.0 = Release|x64
-		{761E8968-F1E9-4F66-B025-24272B6FBD68}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
