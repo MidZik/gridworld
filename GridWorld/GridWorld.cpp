@@ -170,7 +170,7 @@ namespace GridWorld
 
             /*
             Special handling for the entry node.
-            If entry node has a parent, that indicates a cycle. Let all nodes in the cycle mode.
+            If entry node has a parent, that indicates a cycle. Let all nodes in the cycle move.
             If the entry node has an entity but has no parent, it is not moving. Reject all children.
             Otherwise, the node is empty and should accept the child with highest force (or no child if a tie exists).
             */
