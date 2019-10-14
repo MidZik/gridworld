@@ -459,11 +459,22 @@ namespace GridWorld
                 auto scorables_found_size = scorables_found.size();
                 if (scorables_found_size > 0)
                 {
-                    // At least one scorable has been found, reduce a random scorable's score
-                    int random_index = rng() % scorables_found_size;
-                    auto& scorable = *scorables_found[random_index];
-                    scorable.score -= 1;
-                    predation.no_predation_until_tick = em.tick + 5;
+                    if (predation.predate_all)
+                    {
+                        // Reduce all nearby scorables' scores.
+                        for (Scorable* scorable : scorables_found)
+                        {
+                            scorable->score -= 1;
+                        }
+                    }
+                    else
+                    {
+                        // At least one scorable has been found, reduce a random scorable's score
+                        int random_index = rng() % scorables_found_size;
+                        auto& scorable = *scorables_found[random_index];
+                        scorable.score -= 1;
+                    }
+                    predation.no_predation_until_tick = em.tick + predation.ticks_between_predations;
                 }
             });
         }

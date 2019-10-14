@@ -88,6 +88,8 @@ void bind_components_to_python_module(py::module& m)
 
     py::class_<Component::Predation>(m, "Predation")
         .def_readwrite("no_predation_until_tick", &Component::Predation::no_predation_until_tick)
+        .def_readwrite("ticks_between_predations", &Component::Predation::ticks_between_predations)
+        .def_readwrite("predate_all", &Component::Predation::predate_all)
         ;
 
     py::class_<Component::SWorld>(m, "SWorld")

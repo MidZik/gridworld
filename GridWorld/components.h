@@ -152,6 +152,8 @@ namespace GridWorld::Component
     struct Predation
     {
         uint64_t no_predation_until_tick = 0;
+        uint32_t ticks_between_predations = 1;
+        bool predate_all = true;
     };
 
     struct RandomMover
