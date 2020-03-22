@@ -5,7 +5,7 @@
 #define DllExport __declspec(dllexport)
 #define CDllExport extern "C" __declspec(dllexport)
 
-using EntityId = uint64_t;
+ENTT_OPAQUE_TYPE(EntityId, uint64_t);
 using registry = entt::basic_registry<EntityId>;
 
 namespace GridWorld
@@ -66,7 +66,7 @@ namespace GridWorld
             vector<entt::hashed_string::hash_type> type_ids;
             for (string s : types)
             {
-                type_ids.push_back(entt::hashed_string::to_value(s.c_str()));
+                type_ids.push_back(entt::hashed_string(s.c_str()));
             }
             auto view = reg.runtime_view(type_ids.begin(), type_ids.end());
             return vector(view.begin(), view.end());

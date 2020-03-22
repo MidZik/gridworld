@@ -3,10 +3,10 @@
 
 
 #include <iterator>
-#include <cassert>
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <type_traits>
 #include "../config/config.h"
 #include "sparse_set.hpp"
 #include "entity.hpp"
@@ -35,6 +35,7 @@ namespace entt {
  * * New instances of the given components are created and assigned to entities.
  * * The entity currently pointed is modified (as an example, if one of the
  *   given components is removed from the entity to which the iterator points).
+ * * The entity currently pointed is destroyed.
  *
  * In all the other cases, modifying the pools of the given components in any
  * way invalidates all the iterators and using them results in undefined
@@ -48,7 +49,7 @@ namespace entt {
  * have a valid reference and won't be updated accordingly).
  *
  * @warning
- * Lifetime of a view must overcome the one of the registry that generated it.
+ * Lifetime of a view must not overcome that of the registry that generated it.
  * In any other case, attempting to use a view results in undefined behavior.
  *
  * @tparam Entity A valid entity type (see entt_traits for more details).
@@ -59,30 +60,24 @@ class basic_runtime_view {
     friend class basic_registry<Entity>;
 
     using underlying_iterator_type = typename sparse_set<Entity>::iterator_type;
-    using extent_type = typename sparse_set<Entity>::size_type;
-    using traits_type = entt_traits<Entity>;
 
     class iterator {
         friend class basic_runtime_view<Entity>;
 
-        iterator(underlying_iterator_type first, underlying_iterator_type last, const sparse_set<Entity> * const *others, const sparse_set<Entity> * const *length, extent_type ext) ENTT_NOEXCEPT
-            : begin{first},
-              end{last},
-              from{others},
-              to{length},
-              extent{ext}
+        using direct_type = std::vector<const sparse_set<Entity> *>;
+
+        iterator(const direct_type *all, underlying_iterator_type curr) ENTT_NOEXCEPT
+            : pools{all},
+              it{curr}
         {
-            if(begin != end && !valid()) {
+            if(it != (*pools)[0]->end() && !valid()) {
                 ++(*this);
             }
         }
 
-        bool valid() const ENTT_NOEXCEPT {
-            const auto entt = *begin;
-            const auto sz = size_type(entt & traits_type::entity_mask);
-
-            return sz < extent && std::all_of(from, to, [entt](const auto *view) {
-                return view->has(entt);
+        bool valid() const {
+            return std::all_of(pools->begin()++, pools->end(), [entt = *it](const auto *curr) {
+                return curr->has(entt);
             });
         }
 
@@ -91,41 +86,49 @@ class basic_runtime_view {
         using value_type = typename underlying_iterator_type::value_type;
         using pointer = typename underlying_iterator_type::pointer;
         using reference = typename underlying_iterator_type::reference;
-        using iterator_category = std::forward_iterator_tag;
+        using iterator_category = std::bidirectional_iterator_tag;
 
         iterator() ENTT_NOEXCEPT = default;
 
-        iterator & operator++() ENTT_NOEXCEPT {
-            return (++begin != end && !valid()) ? ++(*this) : *this;
+        iterator & operator++() {
+            while(++it != (*pools)[0]->end() && !valid());
+            return *this;
         }
 
-        iterator operator++(int) ENTT_NOEXCEPT {
+        iterator operator++(int) {
             iterator orig = *this;
-            return ++(*this), orig;
+            return operator++(), orig;
+        }
+
+        iterator & operator--() ENTT_NOEXCEPT {
+            while(--it != (*pools)[0]->begin() && !valid());
+            return *this;
+        }
+
+        iterator operator--(int) ENTT_NOEXCEPT {
+            iterator orig = *this;
+            return operator--(), orig;
         }
 
         bool operator==(const iterator &other) const ENTT_NOEXCEPT {
-            return other.begin == begin;
+            return other.it == it;
         }
 
-        inline bool operator!=(const iterator &other) const ENTT_NOEXCEPT {
+        bool operator!=(const iterator &other) const ENTT_NOEXCEPT {
             return !(*this == other);
         }
 
-        pointer operator->() const ENTT_NOEXCEPT {
-            return begin.operator->();
+        pointer operator->() const {
+            return it.operator->();
         }
 
-        inline reference operator*() const ENTT_NOEXCEPT {
+        reference operator*() const {
             return *operator->();
         }
 
     private:
-        underlying_iterator_type begin;
-        underlying_iterator_type end;
-        const sparse_set<Entity> * const *from;
-        const sparse_set<Entity> * const *to;
-        extent_type extent;
+        const direct_type *pools;
+        underlying_iterator_type it;
     };
 
     basic_runtime_view(std::vector<const sparse_set<Entity> *> others) ENTT_NOEXCEPT
@@ -139,29 +142,15 @@ class basic_runtime_view {
         std::rotate(pools.begin(), it, pools.end());
     }
 
-    extent_type min() const ENTT_NOEXCEPT {
-        extent_type extent{};
-
-        if(valid()) {
-            const auto it = std::min_element(pools.cbegin(), pools.cend(), [](const auto *lhs, const auto *rhs) {
-                return lhs->extent() < rhs->extent();
-            });
-
-            extent = (*it)->extent();
-        }
-
-        return extent;
-    }
-
-    inline bool valid() const ENTT_NOEXCEPT {
+    bool valid() const {
         return !pools.empty() && pools.front();
     }
 
 public:
     /*! @brief Underlying entity identifier. */
-    using entity_type = typename sparse_set<Entity>::entity_type;
+    using entity_type = Entity;
     /*! @brief Unsigned integer type. */
-    using size_type = typename sparse_set<Entity>::size_type;
+    using size_type = std::size_t;
     /*! @brief Input iterator type. */
     using iterator_type = iterator;
 
@@ -169,7 +158,7 @@ public:
      * @brief Estimates the number of entities that have the given components.
      * @return Estimated number of entities that have the given components.
      */
-    size_type size() const ENTT_NOEXCEPT {
+    size_type size() const {
         return valid() ? pools.front()->size() : size_type{};
     }
 
@@ -177,7 +166,7 @@ public:
      * @brief Checks if the view is definitely empty.
      * @return True if the view is definitely empty, false otherwise.
      */
-    bool empty() const ENTT_NOEXCEPT {
+    bool empty() const {
         return !valid() || pools.front()->empty();
     }
 
@@ -195,13 +184,11 @@ public:
      *
      * @return An iterator to the first entity that has the given components.
      */
-    iterator_type begin() const ENTT_NOEXCEPT {
+    iterator_type begin() const {
         iterator_type it{};
 
         if(valid()) {
-            const auto &pool = *pools.front();
-            const auto * const *data = pools.data();
-            it = { pool.begin(), pool.end(), data + 1, data + pools.size(), min() };
+            it = { &pools, pools[0]->begin() };
         }
 
         return it;
@@ -222,12 +209,11 @@ public:
      * @return An iterator to the entity following the last entity that has the
      * given components.
      */
-    iterator_type end() const ENTT_NOEXCEPT {
+    iterator_type end() const {
         iterator_type it{};
 
         if(valid()) {
-            const auto &pool = *pools.front();
-            it = { pool.end(), pool.end(), nullptr, nullptr, min() };
+            it = { &pools, pools[0]->end() };
         }
 
         return it;
@@ -238,9 +224,9 @@ public:
      * @param entt A valid entity identifier.
      * @return True if the view contains the given entity, false otherwise.
      */
-    bool contains(const entity_type entt) const ENTT_NOEXCEPT {
+    bool contains(const entity_type entt) const {
         return valid() && std::all_of(pools.cbegin(), pools.cend(), [entt](const auto *view) {
-            return view->has(entt) && view->data()[view->get(entt)] == entt;
+            return view->find(entt) != view->end();
         });
     }
 
@@ -261,7 +247,9 @@ public:
      */
     template<typename Func>
     void each(Func func) const {
-        std::for_each(begin(), end(), func);
+        for(const auto entity: *this) {
+            func(entity);
+        }
     }
 
 private:
@@ -272,4 +260,4 @@ private:
 }
 
 
-#endif // ENTT_ENTITY_RUNTIME_VIEW_HPP
+#endif

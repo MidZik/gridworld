@@ -167,17 +167,3 @@ namespace GridWorld::Component
 
     typedef pybind11::dict PyMeta;
 }
-
-ENTT_NAMED_TYPE(GridWorld::Component::SWorld)
-ENTT_NAMED_TYPE(GridWorld::Component::Moveable)
-ENTT_NAMED_TYPE(GridWorld::Component::Name)
-ENTT_NAMED_TYPE(GridWorld::Component::Position)
-ENTT_NAMED_TYPE(GridWorld::Component::Predation)
-ENTT_NAMED_TYPE(GridWorld::Component::RandomMover)
-ENTT_NAMED_TYPE(GridWorld::Component::Scorable)
-ENTT_NAMED_TYPE(GridWorld::Component::RNG)
-ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrain)
-ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainMover)
-ENTT_NAMED_TYPE(GridWorld::Component::SimpleBrainSeer)
-ENTT_NAMED_TYPE(GridWorld::Component::SNewEntityQueue)
-ENTT_NAMED_TYPE(GridWorld::Component::PyMeta)

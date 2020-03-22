@@ -32,6 +32,7 @@ class basic_snapshot {
     friend class basic_registry<Entity>;
 
     using follow_fn_type = Entity(const basic_registry<Entity> &, const Entity);
+    using traits_type = entt_traits<std::underlying_type_t<Entity>>;
 
     basic_snapshot(const basic_registry<Entity> *source, Entity init, follow_fn_type *fn) ENTT_NOEXCEPT
         : reg{source},
@@ -41,7 +42,7 @@ class basic_snapshot {
 
     template<typename Component, typename Archive, typename It>
     void get(Archive &archive, std::size_t sz, It first, It last) const {
-        archive(static_cast<Entity>(sz));
+        archive(typename traits_type::entity_type(sz));
 
         while(first != last) {
             const auto entt = *(first++);
@@ -88,7 +89,7 @@ public:
      */
     template<typename Archive>
     const basic_snapshot & entities(Archive &archive) const {
-        archive(static_cast<Entity>(reg->alive()));
+        archive(typename traits_type::entity_type(reg->alive()));
         reg->each([&archive](const auto entt) { archive(entt); });
         return *this;
     }
@@ -106,7 +107,7 @@ public:
     template<typename Archive>
     const basic_snapshot & destroyed(Archive &archive) const {
         auto size = reg->size() - reg->alive();
-        archive(static_cast<Entity>(size));
+        archive(typename traits_type::entity_type(size));
 
         if(size) {
             auto curr = seed;
@@ -134,25 +135,7 @@ public:
      */
     template<typename... Component, typename Archive>
     const basic_snapshot & component(Archive &archive) const {
-        if constexpr(sizeof...(Component) == 1) {
-            const auto sz = reg->template size<Component...>();
-            const auto *entities = reg->template data<Component...>();
-
-            archive(static_cast<Entity>(sz));
-
-            for(std::remove_const_t<decltype(sz)> i{}; i < sz; ++i) {
-                const auto entt = entities[i];
-
-                if constexpr(std::is_empty_v<Component...>) {
-                    archive(entt);
-                } else {
-                    archive(entt, reg->template get<Component...>(entt));
-                }
-            };
-        } else {
-            (component<Component>(archive), ...);
-        }
-
+        (component<Component>(archive, reg->template data<Component>(), reg->template data<Component>() + reg->template size<Component>()), ...);
         return *this;
     }
 
@@ -172,7 +155,7 @@ public:
      */
     template<typename... Component, typename Archive, typename It>
     const basic_snapshot & component(Archive &archive, It first, It last) const {
-        component<Component...>(archive, first, last, std::make_index_sequence<sizeof...(Component)>{});
+        component<Component...>(archive, first, last, std::index_sequence_for<Component...>{});
         return *this;
     }
 
@@ -199,6 +182,7 @@ class basic_snapshot_loader {
     friend class basic_registry<Entity>;
 
     using force_fn_type = void(basic_registry<Entity> &, const Entity, const bool);
+    using traits_type = entt_traits<std::underlying_type_t<Entity>>;
 
     basic_snapshot_loader(basic_registry<Entity> *source, force_fn_type *fn) ENTT_NOEXCEPT
         : reg{source},
@@ -209,34 +193,34 @@ class basic_snapshot_loader {
     }
 
     template<typename Archive>
-    void assure(Archive &archive, bool destroyed) const {
-        Entity length{};
+    void assure(Archive &archive, bool discard) const {
+        typename traits_type::entity_type length{};
         archive(length);
 
         while(length--) {
             Entity entt{};
             archive(entt);
-            force(*reg, entt, destroyed);
+            force(*reg, entt, discard);
         }
     }
 
     template<typename Type, typename Archive, typename... Args>
     void assign(Archive &archive, Args... args) const {
-        Entity length{};
+        typename traits_type::entity_type length{};
         archive(length);
 
         while(length--) {
-            static constexpr auto destroyed = false;
+            static constexpr auto discard = false;
             Entity entt{};
 
             if constexpr(std::is_empty_v<Type>) {
                 archive(entt);
-                force(*reg, entt, destroyed);
+                force(*reg, entt, discard);
                 reg->template assign<Type>(args..., entt);
             } else {
                 Type instance{};
                 archive(entt, instance);
-                force(*reg, entt, destroyed);
+                force(*reg, entt, discard);
                 reg->template assign<Type>(args..., entt, std::as_const(instance));
             }
         }
@@ -261,8 +245,8 @@ public:
      */
     template<typename Archive>
     const basic_snapshot_loader & entities(Archive &archive) const {
-        static constexpr auto destroyed = false;
-        assure(archive, destroyed);
+        static constexpr auto discard = false;
+        assure(archive, discard);
         return *this;
     }
 
@@ -278,8 +262,8 @@ public:
      */
     template<typename Archive>
     const basic_snapshot_loader & destroyed(Archive &archive) const {
-        static constexpr auto destroyed = true;
-        assure(archive, destroyed);
+        static constexpr auto discard = true;
+        assure(archive, discard);
         return *this;
     }
 
@@ -344,7 +328,7 @@ private:
  */
 template<typename Entity>
 class basic_continuous_loader {
-    using traits_type = entt_traits<Entity>;
+    using traits_type = entt_traits<std::underlying_type_t<Entity>>;
 
     void destroy(Entity entt) {
         const auto it = remloc.find(entt);
@@ -369,23 +353,55 @@ class basic_continuous_loader {
         }
     }
 
+    template<typename Container>
+    auto update(int, Container &container)
+    -> decltype(typename Container::mapped_type{}, void()) {
+        // map like container
+        Container other;
+
+        for(auto &&pair: container) {
+            using first_type = std::remove_const_t<typename std::decay_t<decltype(pair)>::first_type>;
+            using second_type = typename std::decay_t<decltype(pair)>::second_type;
+
+            if constexpr(std::is_same_v<first_type, Entity> && std::is_same_v<second_type, Entity>) {
+                other.emplace(map(pair.first), map(pair.second));
+            } else if constexpr(std::is_same_v<first_type, Entity>) {
+                other.emplace(map(pair.first), std::move(pair.second));
+            } else {
+                static_assert(std::is_same_v<second_type, Entity>);
+                other.emplace(std::move(pair.first), map(pair.second));
+            }
+        }
+
+        std::swap(container, other);
+    }
+
+    template<typename Container>
+    auto update(char, Container &container)
+    -> decltype(typename Container::value_type{}, void()) {
+        // vector like container
+        static_assert(std::is_same_v<typename Container::value_type, Entity>);
+
+        for(auto &&entt: container) {
+            entt = map(entt);
+        }
+    }
+
     template<typename Other, typename Type, typename Member>
-    void update(Other &instance, Member Type:: *member) {
+    void update([[maybe_unused]] Other &instance, [[maybe_unused]] Member Type:: *member) {
         if constexpr(!std::is_same_v<Other, Type>) {
             return;
         } else if constexpr(std::is_same_v<Member, Entity>) {
             instance.*member = map(instance.*member);
         } else {
             // maybe a container? let's try...
-            for(auto &entt: instance.*member) {
-                entt = map(entt);
-            }
+            update(0, instance.*member);
         }
     }
 
     template<typename Archive>
     void assure(Archive &archive, void(basic_continuous_loader:: *member)(Entity)) {
-        Entity length{};
+        typename traits_type::entity_type length{};
         archive(length);
 
         while(length--) {
@@ -401,14 +417,14 @@ class basic_continuous_loader {
             const auto local = ref.second.first;
 
             if(reg->valid(local)) {
-                reg->template reset<Component>(local);
+                reg->template remove_if_exists<Component>(local);
             }
         }
     }
 
     template<typename Other, typename Archive, typename... Type, typename... Member>
     void assign(Archive &archive, [[maybe_unused]] Member Type:: *... member) {
-        Entity length{};
+        typename traits_type::entity_type length{};
         archive(length);
 
         while(length--) {
@@ -578,12 +594,12 @@ public:
     }
 
 private:
-    std::unordered_map<Entity, std::pair<Entity, bool>> remloc;
-    basic_registry<Entity> *reg;
+    std::unordered_map<entity_type, std::pair<entity_type, bool>> remloc;
+    basic_registry<entity_type> *reg;
 };
 
 
 }
 
 
-#endif // ENTT_ENTITY_SNAPSHOT_HPP
+#endif
