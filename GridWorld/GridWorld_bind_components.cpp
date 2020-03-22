@@ -11,6 +11,23 @@ PYBIND11_MAKE_OPAQUE(std::vector<GridWorld::Component::NeuronMat>)
 namespace py = pybind11;
 using namespace GridWorld;
 
+void setup_components_meta()
+{
+    entt::meta<Component::Moveable>().alias("Moveable"_hs);
+    entt::meta<Component::Name>().alias("Name"_hs);
+    entt::meta<Component::Position>().alias("Position"_hs);
+    entt::meta<Component::Predation>().alias("Predation"_hs);
+    entt::meta<Component::PyMeta>().alias("PyMeta"_hs);
+    entt::meta<Component::RandomMover>().alias("RandomMover"_hs);
+    entt::meta<Component::RNG>().alias("RNG"_hs);
+    entt::meta<Component::Scorable>().alias("Scorable"_hs);
+    entt::meta<Component::SimpleBrain>().alias("SimpleBrain"_hs);
+    entt::meta<Component::SimpleBrainMover>().alias("SimpleBrainMover"_hs);
+    entt::meta<Component::SimpleBrainSeer>().alias("SimpleBrainSeer"_hs);
+    entt::meta<Component::SNewEntityQueue>().alias("SNewEntityQueue"_hs);
+    entt::meta<Component::SWorld>().alias("SWorld"_hs);
+}
+
 void bind_components_to_python_module(py::module& m)
 {
     py::bind_vector<vector<GridWorld::Component::SynapseMat>>(m, "VectorSynapseMat", py::module_local(false));

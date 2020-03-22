@@ -66,7 +66,8 @@ namespace GridWorld
             vector<entt::hashed_string::hash_type> type_ids;
             for (string s : types)
             {
-                type_ids.push_back(entt::hashed_string(s.c_str()));
+                auto id = entt::resolve(entt::hashed_string(s.c_str())).id();
+                type_ids.push_back(id);
             }
             auto view = reg.runtime_view(type_ids.begin(), type_ids.end());
             return vector(view.begin(), view.end());

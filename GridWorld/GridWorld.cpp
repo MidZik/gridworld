@@ -630,6 +630,7 @@ if (em.reg.has<Component::tag>(eid))\
 namespace py = pybind11;
 void bind_components_to_python_module(py::module&);
 void bind_components_to_entity_manager(py::class_<GridWorld::EntityManager>&);
+void setup_components_meta();
 
 PYBIND11_MODULE(gridworld, m)
 {
@@ -648,6 +649,7 @@ PYBIND11_MODULE(gridworld, m)
 
     bind_components_to_python_module(m);
     bind_components_to_entity_manager(entity_manager_class);
+    setup_components_meta();
 
     m.def("multiupdate", &multiupdate, py::call_guard<py::gil_scoped_release>());
     m.def("rebuild_world", &rebuild_world);
