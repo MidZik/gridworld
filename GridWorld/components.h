@@ -21,14 +21,13 @@ namespace GridWorld::Component
     {
         int width = 20;
         int height = 20;
-        EntityId* map = new EntityId[width * height];
+        std::vector<EntityId> map;
 
         void reset_world(int p_width, int p_height)
         {
             width = p_width;
             height = p_height;
-            delete[] map;
-            map = new EntityId[width * height];
+            map.resize(width * height);
             for (auto i = 0; i < width * height; i++)
             {
                 map[i] = entt::null;
@@ -40,7 +39,7 @@ namespace GridWorld::Component
             reset_world(width, height);
         }
 
-        EntityId get_map_data(int x, int y)
+        EntityId get_map_data(int x, int y) const
         {
             return map[get_map_index(x, y)];
         }
@@ -50,27 +49,27 @@ namespace GridWorld::Component
             map[get_map_index(x, y)] = data;
         }
 
-        int get_map_index(int x, int y)
+        int get_map_index(int x, int y) const
         {
             return normalize_y(y) * width + normalize_x(x);
         }
 
-        int get_map_index_x(int map_index)
+        int get_map_index_x(int map_index) const
         {
             return map_index % width;
         }
 
-        int get_map_index_y(int map_index)
+        int get_map_index_y(int map_index) const
         {
             return map_index / width;
         }
 
-        int normalize_x(int x)
+        int normalize_x(int x) const
         {
             return wrapi(x, 0, width);
         }
 
-        int normalize_y(int y)
+        int normalize_y(int y) const
         {
             return wrapi(y, 0, height);
         }
@@ -103,7 +102,7 @@ namespace GridWorld::Component
         std::string minor_name = ""; // "personal name"
     };
 
-    typedef pcg32 RNG;
+    using RNG = pcg32;
 
     using SynapseMat = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic>;
     using NeuronMat = Eigen::Matrix<float, 1, Eigen::Dynamic>;
@@ -166,8 +165,8 @@ namespace GridWorld::Component
     };
 
     typedef pybind11::dict PyMeta;
-    
 }
+
 template<>
 struct entt::is_equality_comparable<GridWorld::Component::PyMeta> : std::false_type
 {

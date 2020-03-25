@@ -6,6 +6,8 @@
 #define CDllExport extern "C" __declspec(dllexport)
 
 ENTT_OPAQUE_TYPE(EntityId, uint64_t);
+
+
 using registry = entt::basic_registry<EntityId>;
 
 namespace GridWorld
@@ -125,5 +127,9 @@ namespace GridWorld
         {
             return reg.create();
         }
+
+        std::string get_state_json();
+
+        void set_state_json(std::string json);
     };
 }

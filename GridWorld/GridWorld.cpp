@@ -8,9 +8,14 @@
 #include <set>
 #include <algorithm>
 #include <queue>
+#include <string>
+#include <sstream>
 
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
+
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/stringbuffer.h>
 
 using Eigen::MatrixXd;
 using namespace std;
@@ -553,6 +558,302 @@ namespace GridWorld
 
     using namespace Component;
 
+    template<typename C>
+    void json_write(std::vector<C> const& vec, rapidjson::Writer<rapidjson::StringBuffer>& writer);
+
+    void json_write(SWorld const& com, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("width");
+        writer.Int(com.width);
+        writer.Key("height");
+        writer.Int(com.height);
+        writer.Key("map");
+        writer.StartArray();
+        for (int x = 0; x < com.height; x++)
+        {
+            writer.StartArray();
+            for (int y = 0; y < com.width; y++)
+            {
+                writer.Uint64(to_integral(com.get_map_data(x, y)));
+            }
+            writer.EndArray();
+        }
+        writer.EndArray();
+
+        writer.EndObject();
+    }
+
+    void json_write(Position const& pos, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("x");
+        writer.Int(pos.x);
+        writer.Key("y");
+        writer.Int(pos.y);
+
+        writer.EndObject();
+    }
+
+    void json_write(Moveable const& mov, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("x_force");
+        writer.Int(mov.x_force);
+        writer.Key("y_force");
+        writer.Int(mov.y_force);
+
+        writer.EndObject();
+    }
+
+    void json_write(Name const& name, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("major_name");
+        writer.String(name.major_name.c_str(), name.major_name.length());
+        writer.Key("minor_name");
+        writer.String(name.minor_name.c_str(), name.major_name.length());
+
+        writer.EndObject();
+    }
+
+    void json_write(RNG const& rng, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        std::stringstream ss;
+        ss << rng;
+        auto state = ss.str();
+
+        writer.Key("state");
+        writer.String(state.c_str(), state.length());
+
+        writer.EndObject();
+    }
+
+    void json_write(SimpleBrainSeer const& seer, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("neuron_offset");
+        writer.Int(seer.neuron_offset);
+        writer.Key("sight_radius");
+        writer.Int(seer.sight_radius);
+
+        writer.EndObject();
+    }
+
+    void json_write(SimpleBrainMover const& mover, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("neuron_offset");
+        writer.Int(mover.neuron_offset);
+
+        writer.EndObject();
+    }
+
+    void json_write(Predation const& pred, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("no_predation_until_tick");
+        writer.Uint64(pred.no_predation_until_tick);
+        writer.Key("ticks_between_predations");
+        writer.Uint(pred.ticks_between_predations);
+        writer.Key("predate_all");
+        writer.Bool(pred.predate_all);
+
+        writer.EndObject();
+    }
+
+    void json_write(SynapseMat const& mat, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartArray();
+
+        for (int r = 0; r < mat.rows(); r++)
+        {
+            writer.StartArray();
+            for (int c = 0; c < mat.cols(); c++)
+            {
+                writer.Double(mat(r, c));
+            }
+            writer.EndArray();
+        }
+
+        writer.EndArray();
+    }
+
+    void json_write(NeuronMat const& mat, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartArray();
+
+        for (int c = 0; c < mat.cols(); c++)
+        {
+            writer.Double(mat(c));
+        }
+
+        writer.EndArray();
+    }
+
+    void json_write(SimpleBrain const& com, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("child_mutation_chance");
+        writer.Double(com.child_mutation_chance);
+        writer.Key("child_mutation_strength");
+        writer.Double(com.child_mutation_strength);
+        writer.Key("synapses");
+        json_write(com.synapses, writer);
+        writer.Key("neurons");
+        json_write(com.neurons, writer);
+
+        writer.EndObject();
+    }
+
+    void json_write(Scorable const& scorable, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("score");
+        writer.Int(scorable.score);
+
+        writer.EndObject();
+    }
+
+    template<typename C>
+    void json_write(std::vector<C> const& vec, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartArray();
+
+        for (C const& com : vec)
+        {
+            json_write(com, writer);
+        }
+
+        writer.EndArray();
+    }
+
+    template<typename C>
+    void json_write_components_array(registry const& reg, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartArray();
+
+        const EntityId* entities = reg.data<C>();
+        const C* coms = reg.raw<C>();
+        for (int i = reg.size<C>() - 1; i >= 0; i--)
+        {
+            writer.StartObject();
+            writer.Key("EID");
+            writer.Uint64(to_integral(entities[i]));
+            writer.Key("Com");
+            json_write(coms[i], writer);
+            writer.EndObject();
+        }
+
+        writer.EndArray();
+    }
+
+    template<typename C>
+    void json_write_tags_array(registry const& reg, rapidjson::Writer<rapidjson::StringBuffer>& writer)
+    {
+        writer.StartArray();
+
+        const EntityId* entities = reg.data<C>();
+        for (int i = reg.size<C>() - 1; i >= 0; i--)
+        {
+            writer.Uint64(to_integral(entities[i]));
+        }
+
+        writer.EndArray();
+    }
+
+    std::string EntityManager::get_state_json()
+    {
+        using namespace rapidjson;
+        StringBuffer buf;
+        Writer<StringBuffer> writer(buf);
+        
+        writer.StartObject();
+        writer.Key("entities");
+        writer.StartArray();
+        for (int i = reg.size() - 1; i >= 0; i--)
+        {
+            writer.Uint64(to_integral(reg.data()[i]));
+        }
+        writer.EndArray();
+
+        writer.Key("components");
+        writer.StartObject();
+
+        writer.Key("SWorld");
+        json_write_components_array<SWorld>(reg, writer);
+
+        writer.Key("Position");
+        json_write_components_array<Position>(reg, writer);
+
+        writer.Key("Moveable");
+        json_write_components_array<Moveable>(reg, writer);
+
+        writer.Key("Name");
+        json_write_components_array<Name>(reg, writer);
+
+        writer.Key("RNG");
+        json_write_components_array<RNG>(reg, writer);
+
+        writer.Key("SimpleBrain");
+        json_write_components_array<SimpleBrain>(reg, writer);
+
+        writer.Key("SimpleBrainSeer");
+        json_write_components_array<SimpleBrainSeer>(reg, writer);
+
+        writer.Key("SimpleBrainMover");
+        json_write_components_array<SimpleBrainMover>(reg, writer);
+
+        writer.Key("Predation");
+        json_write_components_array<Predation>(reg, writer);
+
+        writer.Key("Scorable");
+        json_write_components_array<Predation>(reg, writer);
+
+        writer.Key("RandomMover");
+        json_write_tags_array<Predation>(reg, writer);
+
+        writer.EndObject(); // components
+
+        writer.EndObject(); // root
+
+        return buf.GetString();
+    }
+
+    void EntityManager::set_state_json(std::string json)
+    {
+        /*std::stringstream jsonstream{ json };
+        cereal::JSONInputArchive input{ jsonstream };
+        registry tmp = registry();
+        tmp.loader().entities(input).destroyed(input)
+            .component<
+            SWorld,
+            Position,
+            Moveable,
+            Name,
+            RNG,
+            SimpleBrain,
+            SimpleBrainSeer,
+            SimpleBrainMover,
+            Predation,
+            RandomMover,
+            Scorable
+            >(input);
+
+        reg = std::move(tmp);*/
+    }
+
     void rebuild_world(EntityManager& em)
     {
         auto position_view = em.reg.view<Position>();
@@ -639,12 +940,19 @@ PYBIND11_MODULE(gridworld, m)
 
     m.doc() = "GridWorld module.";
 
+    auto entity_id_class = py::class_<EntityId>(m, "EntityId")
+        .def(py::init<uint64_t>())
+        .def("__str__", [](EntityId& eid) { return std::to_string(to_integral(eid)); })
+        ;
+
     auto entity_manager_class = py::class_<EntityManager>(m, "EntityManager")
         .def(py::init<>())
         .def_readwrite("tick", &EntityManager::tick)
         .def("get_matching_entities", &EntityManager::get_matching_entities)
         .def("create", &EntityManager::create)
         .def("destroy", &EntityManager::destroy)
+        .def("get_state_json", &EntityManager::get_state_json)
+        .def("set_state_json", &EntityManager::set_state_json)
         ;
 
     bind_components_to_python_module(m);
