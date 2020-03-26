@@ -569,18 +569,6 @@ namespace GridWorld
         writer.Int(com.width);
         writer.Key("height");
         writer.Int(com.height);
-        writer.Key("map");
-        writer.StartArray();
-        for (int x = 0; x < com.height; x++)
-        {
-            writer.StartArray();
-            for (int y = 0; y < com.width; y++)
-            {
-                writer.Uint64(to_integral(com.get_map_data(x, y)));
-            }
-            writer.EndArray();
-        }
-        writer.EndArray();
 
         writer.EndObject();
     }
@@ -781,50 +769,61 @@ namespace GridWorld
         
         writer.StartObject();
         writer.Key("entities");
-        writer.StartArray();
-        for (int i = reg.size() - 1; i >= 0; i--)
         {
-            writer.Uint64(to_integral(reg.data()[i]));
-        }
-        writer.EndArray();
+            writer.StartArray();
+            for (int i = reg.size() - 1; i >= 0; i--)
+            {
+                writer.Uint64(to_integral(reg.data()[i]));
+            }
+            writer.EndArray();
+        } // entities
+
+        writer.Key("singletons");
+        {
+            writer.StartObject();
+
+            writer.Key("SWorld");
+            json_write(reg.ctx<SWorld>(), writer);
+
+            writer.EndObject(); 
+        } // singletons
 
         writer.Key("components");
-        writer.StartObject();
+        {
+            writer.StartObject();
 
-        writer.Key("SWorld");
-        json_write_components_array<SWorld>(reg, writer);
+            writer.Key("Position");
+            json_write_components_array<Position>(reg, writer);
 
-        writer.Key("Position");
-        json_write_components_array<Position>(reg, writer);
+            writer.Key("Moveable");
+            json_write_components_array<Moveable>(reg, writer);
 
-        writer.Key("Moveable");
-        json_write_components_array<Moveable>(reg, writer);
+            writer.Key("Name");
+            json_write_components_array<Name>(reg, writer);
 
-        writer.Key("Name");
-        json_write_components_array<Name>(reg, writer);
+            writer.Key("RNG");
+            json_write_components_array<RNG>(reg, writer);
 
-        writer.Key("RNG");
-        json_write_components_array<RNG>(reg, writer);
+            writer.Key("SimpleBrain");
+            json_write_components_array<SimpleBrain>(reg, writer);
 
-        writer.Key("SimpleBrain");
-        json_write_components_array<SimpleBrain>(reg, writer);
+            writer.Key("SimpleBrainSeer");
+            json_write_components_array<SimpleBrainSeer>(reg, writer);
 
-        writer.Key("SimpleBrainSeer");
-        json_write_components_array<SimpleBrainSeer>(reg, writer);
+            writer.Key("SimpleBrainMover");
+            json_write_components_array<SimpleBrainMover>(reg, writer);
 
-        writer.Key("SimpleBrainMover");
-        json_write_components_array<SimpleBrainMover>(reg, writer);
+            writer.Key("Predation");
+            json_write_components_array<Predation>(reg, writer);
 
-        writer.Key("Predation");
-        json_write_components_array<Predation>(reg, writer);
+            writer.Key("Scorable");
+            json_write_components_array<Predation>(reg, writer);
 
-        writer.Key("Scorable");
-        json_write_components_array<Predation>(reg, writer);
+            writer.Key("RandomMover");
+            json_write_tags_array<Predation>(reg, writer);
 
-        writer.Key("RandomMover");
-        json_write_tags_array<Predation>(reg, writer);
-
-        writer.EndObject(); // components
+            writer.EndObject(); 
+        } // components
 
         writer.EndObject(); // root
 
