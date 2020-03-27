@@ -14,8 +14,11 @@
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
 
+#define RAPIDJSON_NOMEMBERITERATORCLASS
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
+#include <rapidjson/document.h>
+#include <rapidjson/schema.h>
 
 using Eigen::MatrixXd;
 using namespace std;
@@ -561,6 +564,9 @@ namespace GridWorld
     template<typename C>
     void json_write(std::vector<C> const& vec, rapidjson::Writer<rapidjson::StringBuffer>& writer);
 
+    template<typename C>
+    void json_read(std::vector<C>& vec, rapidjson::Value const& value);
+
     void json_write(SWorld const& com, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartObject();
@@ -571,6 +577,12 @@ namespace GridWorld
         writer.Int(com.height);
 
         writer.EndObject();
+    }
+
+    void json_read(SWorld& com, rapidjson::Value const& value)
+    {
+        com.width = value["width"].GetInt();
+        com.height = value["height"].GetInt();
     }
 
     void json_write(Position const& pos, rapidjson::Writer<rapidjson::StringBuffer>& writer)
@@ -585,6 +597,12 @@ namespace GridWorld
         writer.EndObject();
     }
 
+    void json_read(Position& com, rapidjson::Value const& value)
+    {
+        com.x = value["x"].GetInt();
+        com.y = value["y"].GetInt();
+    }
+
     void json_write(Moveable const& mov, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartObject();
@@ -597,6 +615,12 @@ namespace GridWorld
         writer.EndObject();
     }
 
+    void json_read(Moveable& com, rapidjson::Value const& value)
+    {
+        com.x_force = value["x_force"].GetInt();
+        com.y_force = value["y_force"].GetInt();
+    }
+
     void json_write(Name const& name, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartObject();
@@ -607,6 +631,12 @@ namespace GridWorld
         writer.String(name.minor_name.c_str(), name.major_name.length());
 
         writer.EndObject();
+    }
+
+    void json_read(Name& com, rapidjson::Value const& value)
+    {
+        com.major_name = value["major_name"].GetString();
+        com.minor_name = value["minor_name"].GetString();
     }
 
     void json_write(RNG const& rng, rapidjson::Writer<rapidjson::StringBuffer>& writer)
@@ -623,6 +653,13 @@ namespace GridWorld
         writer.EndObject();
     }
 
+    void json_read(RNG& com, rapidjson::Value const& value)
+    {
+        std::stringstream ss;
+        ss << value["state"].GetString();
+        ss >> com;
+    }
+
     void json_write(SimpleBrainSeer const& seer, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartObject();
@@ -635,6 +672,12 @@ namespace GridWorld
         writer.EndObject();
     }
 
+    void json_read(SimpleBrainSeer& com, rapidjson::Value const& value)
+    {
+        com.neuron_offset = value["neuron_offset"].GetInt();
+        com.sight_radius = value["sight_radius"].GetInt();
+    }
+
     void json_write(SimpleBrainMover const& mover, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartObject();
@@ -643,6 +686,11 @@ namespace GridWorld
         writer.Int(mover.neuron_offset);
 
         writer.EndObject();
+    }
+
+    void json_read(SimpleBrainMover& com, rapidjson::Value const& value)
+    {
+        com.neuron_offset = value["neuron_offset"].GetInt();
     }
 
     void json_write(Predation const& pred, rapidjson::Writer<rapidjson::StringBuffer>& writer)
@@ -657,6 +705,13 @@ namespace GridWorld
         writer.Bool(pred.predate_all);
 
         writer.EndObject();
+    }
+
+    void json_read(Predation& com, rapidjson::Value const& value)
+    {
+        com.no_predation_until_tick = value["no_predation_until_tick"].GetUint64();
+        com.ticks_between_predations = value["ticks_between_predations"].GetUint();
+        com.predate_all = value["predate_all"].GetBool();
     }
 
     void json_write(SynapseMat const& mat, rapidjson::Writer<rapidjson::StringBuffer>& writer)
@@ -676,6 +731,22 @@ namespace GridWorld
         writer.EndArray();
     }
 
+    void json_read(SynapseMat& com, rapidjson::Value const& value)
+    {
+        int rows = value.Size();
+        int cols = value[0].Size();
+
+        com.resize(rows, cols);
+
+        for (int r = 0; r < rows; r++)
+        {
+            for (int c = 0; c < cols; c++)
+            {
+                com(r, c) = value[r][c].GetDouble();
+            }
+        }
+    }
+
     void json_write(NeuronMat const& mat, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartArray();
@@ -686,6 +757,18 @@ namespace GridWorld
         }
 
         writer.EndArray();
+    }
+
+    void json_read(NeuronMat& com, rapidjson::Value const& value)
+    {
+        int cols = value.Size();
+
+        com.resize(cols);
+
+        for (int c = 0; c < cols; c++)
+        {
+            com(c) = value[c].GetDouble();
+        }
     }
 
     void json_write(SimpleBrain const& com, rapidjson::Writer<rapidjson::StringBuffer>& writer)
@@ -704,6 +787,14 @@ namespace GridWorld
         writer.EndObject();
     }
 
+    void json_read(SimpleBrain& com, rapidjson::Value const& value)
+    {
+        com.child_mutation_chance = value["child_mutation_chance"].GetDouble();
+        com.child_mutation_strength = value["child_mutation_strength"].GetDouble();
+        json_read(com.synapses, value["synapses"]);
+        json_read(com.neurons, value["neurons"]);
+    }
+
     void json_write(Scorable const& scorable, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartObject();
@@ -712,6 +803,11 @@ namespace GridWorld
         writer.Int(scorable.score);
 
         writer.EndObject();
+    }
+
+    void json_read(Scorable& com, rapidjson::Value const& value)
+    {
+        com.score = value["score"].GetInt();
     }
 
     template<typename C>
@@ -728,13 +824,25 @@ namespace GridWorld
     }
 
     template<typename C>
+    void json_read(std::vector<C>& vec, rapidjson::Value const& value)
+    {
+        vec.clear();
+        vec.resize(value.Size());
+
+        for (int i = 0; i < vec.size(); i++)
+        {
+            json_read(vec[i], value[i]);
+        }
+    }
+
+    template<typename C>
     void json_write_components_array(registry const& reg, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartArray();
 
         const EntityId* entities = reg.data<C>();
         const C* coms = reg.raw<C>();
-        for (int i = reg.size<C>() - 1; i >= 0; i--)
+        for (int i = 0; i < reg.size<C>(); i++)
         {
             writer.StartObject();
             writer.Key("EID");
@@ -748,17 +856,37 @@ namespace GridWorld
     }
 
     template<typename C>
+    void json_read_components_array(registry& reg, rapidjson::Value const& value)
+    {
+        for (auto const& item : value.GetArray())
+        {
+            EntityId eid = (EntityId)item["EID"].GetUint64();
+            json_read(reg.assign<C>(eid), item["Com"]);
+        }
+    }
+
+    template<typename C>
     void json_write_tags_array(registry const& reg, rapidjson::Writer<rapidjson::StringBuffer>& writer)
     {
         writer.StartArray();
 
         const EntityId* entities = reg.data<C>();
-        for (int i = reg.size<C>() - 1; i >= 0; i--)
+        for (int i = 0; i < reg.size<C>(); i++)
         {
             writer.Uint64(to_integral(entities[i]));
         }
 
         writer.EndArray();
+    }
+
+    template<typename C>
+    void json_read_tags_array(registry& reg, rapidjson::Value const& value)
+    {
+        for (auto const& item : value.GetArray())
+        {
+            EntityId eid = (EntityId)item.GetUint64();
+            reg.assign<C>(eid);
+        }
     }
 
     std::string EntityManager::get_state_json()
@@ -771,7 +899,7 @@ namespace GridWorld
         writer.Key("entities");
         {
             writer.StartArray();
-            for (int i = reg.size() - 1; i >= 0; i--)
+            for (int i = 0; i < reg.size(); i++)
             {
                 writer.Uint64(to_integral(reg.data()[i]));
             }
@@ -817,10 +945,10 @@ namespace GridWorld
             json_write_components_array<Predation>(reg, writer);
 
             writer.Key("Scorable");
-            json_write_components_array<Predation>(reg, writer);
+            json_write_components_array<Scorable>(reg, writer);
 
             writer.Key("RandomMover");
-            json_write_tags_array<Predation>(reg, writer);
+            json_write_tags_array<RandomMover>(reg, writer);
 
             writer.EndObject(); 
         } // components
@@ -830,27 +958,119 @@ namespace GridWorld
         return buf.GetString();
     }
 
+    const char * state_schema = R"xx(
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "id": "GridWorld/StateJson",
+    "type": "object",
+    "properties": {
+        "entities": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "integer"
+            }
+        },
+        "singletons": { "type": "object" },
+        "components": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "properties": {
+                                "EID": { "type": "integer" },
+                                "Com": true
+                            },
+                            "required": ["EID", "Com"]
+                        },
+                        {
+                            "type": "integer"
+                        }
+                    ]
+                }
+            }
+        }
+    }
+}
+)xx";
+
     void EntityManager::set_state_json(std::string json)
     {
-        /*std::stringstream jsonstream{ json };
-        cereal::JSONInputArchive input{ jsonstream };
+        using namespace rapidjson;
         registry tmp = registry();
-        tmp.loader().entities(input).destroyed(input)
-            .component<
-            SWorld,
-            Position,
-            Moveable,
-            Name,
-            RNG,
-            SimpleBrain,
-            SimpleBrainSeer,
-            SimpleBrainMover,
-            Predation,
-            RandomMover,
-            Scorable
-            >(input);
 
-        reg = std::move(tmp);*/
+        // parse input
+        Document doc;
+        doc.Parse(json.c_str(), json.size());
+        if (doc.HasParseError())
+        {
+            throw std::invalid_argument("Input is not valid JSON.");
+        }
+
+        // setup schema
+        Document schema_doc;
+        schema_doc.Parse(state_schema, strlen(state_schema));
+        if (schema_doc.HasParseError())
+        {
+            // this is an internal error
+            throw std::exception("Internal error. (Schema error)");
+        }
+        SchemaDocument schema(schema_doc);
+
+        SchemaValidator validator(schema);
+        if (!doc.Accept(validator))
+        {
+            // Input is invalid according to the schema.
+            throw std::invalid_argument("Input failed schema validation.");
+        }
+
+        const Value& entities = doc["entities"];
+        const Value& singletons = doc["singletons"];
+        const Value& components = doc["components"];
+
+        {
+            // Entities
+            std::vector<EntityId> ints;
+            for (auto& v : entities.GetArray())
+            {
+                ints.push_back((EntityId)v.GetInt64());
+            }
+
+            tmp.assign(ints.begin(), ints.end());
+        }
+
+        {
+            // Singletons
+            json_read(tmp.ctx_or_set<SWorld>(), singletons["SWorld"]);
+        }
+
+        {
+            // Components
+            json_read_components_array<Position>(tmp, components["Position"]);
+
+            json_read_components_array<Moveable>(tmp, components["Moveable"]);
+
+            json_read_components_array<Name>(tmp, components["Name"]);
+
+            json_read_components_array<RNG>(tmp, components["RNG"]);
+
+            json_read_components_array<SimpleBrain>(tmp, components["SimpleBrain"]);
+
+            json_read_components_array<SimpleBrainSeer>(tmp, components["SimpleBrainSeer"]);
+
+            json_read_components_array<SimpleBrainMover>(tmp, components["SimpleBrainMover"]);
+
+            json_read_components_array<Predation>(tmp, components["Predation"]);
+
+            json_read_components_array<Scorable>(tmp, components["Scorable"]);
+
+            json_read_tags_array<RandomMover>(tmp, components["RandomMover"]);
+        }
+
+        reg = std::move(tmp);
     }
 
     void rebuild_world(EntityManager& em)
