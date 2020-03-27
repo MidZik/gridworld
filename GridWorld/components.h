@@ -163,11 +163,4 @@ namespace GridWorld::Component
     {
         int score = 0;
     };
-
-    typedef pybind11::dict PyMeta;
 }
-
-template<>
-struct entt::is_equality_comparable<GridWorld::Component::PyMeta> : std::false_type
-{
-};

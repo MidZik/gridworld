@@ -17,7 +17,6 @@ void setup_components_meta()
     entt::meta<Component::Name>().alias("Name"_hs);
     entt::meta<Component::Position>().alias("Position"_hs);
     entt::meta<Component::Predation>().alias("Predation"_hs);
-    entt::meta<Component::PyMeta>().alias("PyMeta"_hs);
     entt::meta<Component::RandomMover>().alias("RandomMover"_hs);
     entt::meta<Component::RNG>().alias("RNG"_hs);
     entt::meta<Component::Scorable>().alias("Scorable"_hs);
@@ -146,7 +145,6 @@ void bind_components_to_entity_manager(py::class_<EntityManager>& c)
         GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainSeer)
         GRIDWORLD_EM_COMPONENT_FUNCTIONS(SimpleBrainMover)
         GRIDWORLD_EM_COMPONENT_FUNCTIONS(Predation)
-        GRIDWORLD_EM_COMPONENT_FUNCTIONS(PyMeta)
         GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(SWorld)
         GRIDWORLD_EM_SINGLETON_COMPONENT_FUNCTIONS(RNG)
         GRIDWORLD_EM_TAG_FUNCTIONS(RandomMover)
