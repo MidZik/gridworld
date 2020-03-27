@@ -1161,7 +1161,7 @@ PYBIND11_MODULE(gridworld, m)
 
     auto entity_id_class = py::class_<EntityId>(m, "EntityId")
         .def(py::init<uint64_t>())
-        .def("__str__", [](EntityId& eid) { return std::to_string(to_integral(eid)); })
+        .def("__repr__", [](EntityId& eid) { return std::to_string(to_integral(eid)); })
         ;
 
     auto entity_manager_class = py::class_<EntityManager>(m, "EntityManager")
