@@ -917,6 +917,10 @@ namespace GridWorld
         Writer<StringBuffer> writer(buf);
         
         writer.StartObject();
+
+        writer.Key("tick");
+        writer.Uint64(tick);
+
         writer.Key("entities");
         {
             writer.StartArray();
@@ -985,6 +989,7 @@ namespace GridWorld
     "id": "GridWorld/StateJson",
     "type": "object",
     "properties": {
+        "tick": { "type": "integer" },
         "entities": {
             "type": "array",
             "uniqueItems": true,
@@ -1094,6 +1099,7 @@ namespace GridWorld
         reg = std::move(tmp);
 
         rebuild_world(*this);
+        tick = doc["tick"].GetUint64();
     }
 
     
