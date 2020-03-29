@@ -561,6 +561,27 @@ namespace GridWorld
 
     using namespace Component;
 
+    void rebuild_world(EntityManager& em)
+    {
+        auto position_view = em.reg.view<Position>();
+        SWorld& world = em.get_singleton<SWorld>();
+        world.reset_world();
+        for (EntityId eid : position_view)
+        {
+            auto& pos = position_view.get(eid);
+
+            EntityId existing_data = world.get_map_data(pos.x, pos.y);
+            if (existing_data != entt::null)
+            {
+                throw exception("Failed to rebuild world, multiple entities share the same position.");
+            }
+            else
+            {
+                world.set_map_data(pos.x, pos.y, eid);
+            }
+        }
+    }
+
     template<typename C>
     void json_write(std::vector<C> const& vec, rapidjson::Writer<rapidjson::StringBuffer>& writer);
 
@@ -1071,28 +1092,11 @@ namespace GridWorld
         }
 
         reg = std::move(tmp);
+
+        rebuild_world(*this);
     }
 
-    void rebuild_world(EntityManager& em)
-    {
-        auto position_view = em.reg.view<Position>();
-        SWorld& world = em.get_singleton<SWorld>();
-        world.reset_world();
-        for (EntityId eid : position_view)
-        {
-            auto& pos = position_view.get(eid);
-
-            EntityId existing_data = world.get_map_data(pos.x, pos.y);
-            if (existing_data != entt::null)
-            {
-                throw exception("Failed to rebuild world, multiple entities share the same position.");
-            }
-            else
-            {
-                world.set_map_data(pos.x, pos.y, eid);
-            }
-        }
-    }
+    
 
     void update(EntityManager& em)
     {
