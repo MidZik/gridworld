@@ -1190,5 +1190,5 @@ PYBIND11_MODULE(gridworld, m)
     m.def("multiupdate", &multiupdate, py::call_guard<py::gil_scoped_release>());
     m.def("rebuild_world", &rebuild_world);
     m.def("duplicate_entity", &duplicate_entity);
-    m.attr("null") = entt::null;
+    m.attr("null") = (EntityId)entt::null;
 }
