@@ -1157,9 +1157,24 @@ if (em.reg.has<Component::tag>(eid))\
 
 // Forward declaration of python binding functions
 namespace py = pybind11;
-void bind_components_to_python_module(py::module&);
-void bind_components_to_entity_manager(py::class_<GridWorld::EntityManager>&);
-void setup_components_meta();
+
+void setup_components_meta()
+{
+    using namespace GridWorld::Component;
+
+    entt::meta<Moveable>().alias("Moveable"_hs);
+    entt::meta<Name>().alias("Name"_hs);
+    entt::meta<Position>().alias("Position"_hs);
+    entt::meta<Predation>().alias("Predation"_hs);
+    entt::meta<RandomMover>().alias("RandomMover"_hs);
+    entt::meta<RNG>().alias("RNG"_hs);
+    entt::meta<Scorable>().alias("Scorable"_hs);
+    entt::meta<SimpleBrain>().alias("SimpleBrain"_hs);
+    entt::meta<SimpleBrainMover>().alias("SimpleBrainMover"_hs);
+    entt::meta<SimpleBrainSeer>().alias("SimpleBrainSeer"_hs);
+    entt::meta<SNewEntityQueue>().alias("SNewEntityQueue"_hs);
+    entt::meta<SWorld>().alias("SWorld"_hs);
+}
 
 PYBIND11_MODULE(gridworld, m)
 {
@@ -1183,8 +1198,6 @@ PYBIND11_MODULE(gridworld, m)
         .def("set_state_json", &EntityManager::set_state_json)
         ;
 
-    bind_components_to_python_module(m);
-    bind_components_to_entity_manager(entity_manager_class);
     setup_components_meta();
 
     m.def("multiupdate", &multiupdate, py::call_guard<py::gil_scoped_release>());

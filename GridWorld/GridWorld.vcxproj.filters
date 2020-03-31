@@ -38,9 +38,6 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="GridWorld_bind_components.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GridWorld.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
