@@ -554,5 +554,13 @@ uint64_t GridWorld::Simulation::create_entity()
 
 std::vector<uint64_t> GridWorld::Simulation::get_all_entities()
 {
-    return std::vector<uint64_t>();
+    std::vector<uint64_t> result;
+    result.reserve(reg.size());
+    const GridWorld::EntityId* data = reg.data();
+    for (int i = 0; i < reg.size(); i++)
+    {
+        result.push_back(to_integral(reg.data()[i]));
+    }
+
+    return result;
 }
