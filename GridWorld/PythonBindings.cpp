@@ -25,6 +25,7 @@ PYBIND11_MODULE(simulation, m)
         .def("get_state_json", &Simulation::get_state_json)
         .def("set_state_json", &Simulation::set_state_json)
         .def("create_entity", &Simulation::create_entity)
+        .def("destroy_entity", &Simulation::destroy_entity)
         .def("get_all_entities", &Simulation::get_all_entities)
         ;
 

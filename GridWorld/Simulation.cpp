@@ -552,6 +552,11 @@ uint64_t GridWorld::Simulation::create_entity()
     return to_integral(reg.create());
 }
 
+void GridWorld::Simulation::destroy_entity(uint64_t eid)
+{
+    reg.destroy(EntityId{ eid });
+}
+
 std::vector<uint64_t> GridWorld::Simulation::get_all_entities()
 {
     std::vector<uint64_t> result;
@@ -559,7 +564,10 @@ std::vector<uint64_t> GridWorld::Simulation::get_all_entities()
     const GridWorld::EntityId* data = reg.data();
     for (int i = 0; i < reg.size(); i++)
     {
-        result.push_back(to_integral(reg.data()[i]));
+        if (reg.valid(data[i]))
+        {
+            result.push_back(to_integral(reg.data()[i]));
+        }
     }
 
     return result;
