@@ -1175,33 +1175,3 @@ void setup_components_meta()
     entt::meta<SNewEntityQueue>().alias("SNewEntityQueue"_hs);
     entt::meta<SWorld>().alias("SWorld"_hs);
 }
-
-PYBIND11_MODULE(gridworld, m)
-{
-    using namespace py::literals;
-    using namespace GridWorld;
-
-    m.doc() = "GridWorld module.";
-
-    auto entity_id_class = py::class_<EntityId>(m, "EntityId")
-        .def(py::init<uint64_t>())
-        .def("__repr__", [](EntityId& eid) { return std::to_string(to_integral(eid)); })
-        ;
-
-    auto entity_manager_class = py::class_<EntityManager>(m, "EntityManager")
-        .def(py::init<>())
-        .def_readwrite("tick", &EntityManager::tick)
-        .def("get_matching_entities", &EntityManager::get_matching_entities)
-        .def("create", &EntityManager::create)
-        .def("destroy", &EntityManager::destroy)
-        .def("get_state_json", &EntityManager::get_state_json)
-        .def("set_state_json", &EntityManager::set_state_json)
-        ;
-
-    setup_components_meta();
-
-    m.def("multiupdate", &multiupdate, py::call_guard<py::gil_scoped_release>());
-    m.def("rebuild_world", &rebuild_world);
-    m.def("duplicate_entity", &duplicate_entity);
-    m.attr("null") = (EntityId)entt::null;
-}

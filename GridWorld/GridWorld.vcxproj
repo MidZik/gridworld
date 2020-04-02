@@ -47,11 +47,15 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>C:\Users\Matt\Anaconda3\envs\pygridworld\include;$(SolutionDir)ThirdParty;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\Matt\Anaconda3\envs\pygridworld\libs;$(LibraryPath)</LibraryPath>
+    <TargetName>simulation</TargetName>
+    <TargetExt>.pyd</TargetExt>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>C:\Users\Matt\Anaconda3\envs\pygridworld\include;$(SolutionDir)ThirdParty;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\Matt\Anaconda3\envs\pygridworld\libs;$(LibraryPath)</LibraryPath>
+    <TargetName>simulation</TargetName>
+    <TargetExt>.pyd</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -106,13 +110,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="GridWorld.cpp" />
+    <ClCompile Include="PythonBindings.cpp" />
     <ClCompile Include="Registry.cpp" />
     <ClCompile Include="Simulation.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Systems.cpp" />
+    <ClCompile Include="Systems.cpp">
+      <DeploymentContent>false</DeploymentContent>
+    </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
