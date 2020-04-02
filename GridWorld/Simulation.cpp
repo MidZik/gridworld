@@ -344,8 +344,19 @@ namespace GridWorld::JSON
     }
 }
 
+GridWorld::registry create_empty_simulation_registry()
+{
+    using namespace GridWorld::Component;
+    GridWorld::registry reg;
+
+    reg.ctx_or_set<SWorld>();
+
+    return reg;
+}
+
 GridWorld::Simulation::Simulation()
 {
+    reg = create_empty_simulation_registry();
 }
 
 std::string GridWorld::Simulation::get_state_json()
@@ -463,7 +474,7 @@ void GridWorld::Simulation::set_state_json(std::string json)
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
-    registry tmp = registry();
+    registry tmp = create_empty_simulation_registry();
 
     // parse input
     Document doc;
