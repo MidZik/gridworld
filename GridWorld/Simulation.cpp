@@ -549,7 +549,7 @@ void GridWorld::Simulation::set_state_json(std::string json)
 
 uint64_t GridWorld::Simulation::create_entity()
 {
-    return uint64_t();
+    return to_integral(reg.create());
 }
 
 std::vector<uint64_t> GridWorld::Simulation::get_all_entities()
