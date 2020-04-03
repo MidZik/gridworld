@@ -613,6 +613,7 @@ void update_tick(GridWorld::registry& reg)
 {
     using namespace GridWorld::Systems;
 
+    tick_increment(reg);
     simple_brain_seer(reg);
     simple_brain_calc(reg);
     simple_brain_mover(reg);

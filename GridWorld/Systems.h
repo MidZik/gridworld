@@ -4,6 +4,8 @@
 
 namespace GridWorld::Systems
 {
+    void tick_increment(registry& reg);
+
     void movement(registry& reg);
 
     void simple_brain_calc(registry& reg);

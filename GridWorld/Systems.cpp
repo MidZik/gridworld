@@ -62,6 +62,11 @@ void _get_map_data_in_radius(SWorld& world, int x, int y, int radius, std::vecto
 }
 #pragma endregion Helper Functions
 
+void GridWorld::Systems::tick_increment(registry & reg)
+{
+    reg.ctx<STickCounter>().tick++;
+}
+
 #pragma region Movement
 struct _MovementInfo
 {
