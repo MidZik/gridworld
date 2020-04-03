@@ -4,7 +4,7 @@
 #include <Eigen/Dense>
 #include <pybind11/pybind11.h>
 
-#include "GridWorld.h"
+#include "Registry.h"
 #include "pcg_random.hpp"
 
 static int wrapi(int i, int lower_bound, int upper_bound)

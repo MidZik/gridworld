@@ -99,7 +99,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="components.h" />
-    <ClInclude Include="GridWorld.h" />
     <ClInclude Include="pcg_extras.hpp" />
     <ClInclude Include="pcg_random.hpp" />
     <ClInclude Include="pcg_uint128.hpp" />
@@ -109,7 +108,7 @@
     <ClInclude Include="Systems.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="GridWorld.cpp" />
+    <ClCompile Include="components.cpp" />
     <ClCompile Include="PythonBindings.cpp" />
     <ClCompile Include="Registry.cpp" />
     <ClCompile Include="Simulation.cpp" />
