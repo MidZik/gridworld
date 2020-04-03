@@ -27,6 +27,8 @@ PYBIND11_MODULE(simulation, m)
         .def("create_entity", &Simulation::create_entity)
         .def("destroy_entity", &Simulation::destroy_entity)
         .def("get_all_entities", &Simulation::get_all_entities)
+        .def("start_simulation", &Simulation::start_simulation)
+        .def("stop_simulation", &Simulation::stop_simulation)
         ;
 
     m.attr("null") = to_integral((EntityId)entt::null);

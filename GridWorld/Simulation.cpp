@@ -1,14 +1,15 @@
 #include "stdafx.h"
 
-#include "Simulation.h"
-
-#include "components.h"
-
 #define RAPIDJSON_NOMEMBERITERATORCLASS
 #include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/document.h>
 #include <rapidjson/schema.h>
+
+#include "Simulation.h"
+#include "components.h"
+#include "Systems.h"
+
 
 namespace GridWorld::JSON
 {
@@ -368,6 +369,7 @@ GridWorld::registry create_empty_simulation_registry()
 GridWorld::Simulation::Simulation()
 {
     reg = create_empty_simulation_registry();
+    continue_running_simulation = false;
 }
 
 std::string GridWorld::Simulation::get_state_json()
@@ -587,4 +589,44 @@ std::vector<uint64_t> GridWorld::Simulation::get_all_entities()
     }
 
     return result;
+}
+
+void GridWorld::Simulation::start_simulation()
+{
+    if (!simulation_thread.joinable())
+    {
+        continue_running_simulation = true;
+        simulation_thread = std::thread(&Simulation::simulation_loop, this);
+    }
+}
+
+void GridWorld::Simulation::stop_simulation()
+{
+    if (simulation_thread.joinable())
+    {
+        continue_running_simulation = false;
+        simulation_thread.join();
+    }
+}
+
+void update_tick(GridWorld::registry& reg)
+{
+    using namespace GridWorld::Systems;
+
+    simple_brain_seer(reg);
+    simple_brain_calc(reg);
+    simple_brain_mover(reg);
+    random_movement(reg);
+    movement(reg);
+    predation(reg);
+}
+
+void GridWorld::Simulation::simulation_loop()
+{
+    while (true)
+    {
+        if (!continue_running_simulation) break;
+
+        update_tick(reg);
+    }
 }
