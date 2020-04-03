@@ -1,9 +1,11 @@
 #pragma once
 
-#include "GridWorld.h"
-#include "pcg_random.hpp"
+#include <cstdint>
 #include <Eigen/Dense>
 #include <pybind11/pybind11.h>
+
+#include "GridWorld.h"
+#include "pcg_random.hpp"
 
 static int wrapi(int i, int lower_bound, int upper_bound)
 {
@@ -17,6 +19,11 @@ static int wrapi(int i, int lower_bound, int upper_bound)
 
 namespace GridWorld::Component
 {
+    struct STickCounter
+    {
+        uint64_t tick;
+    };
+
     struct SWorld
     {
         int width = 20;

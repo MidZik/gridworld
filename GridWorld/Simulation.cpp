@@ -21,6 +21,16 @@ namespace GridWorld::JSON
     template<typename C>
     void json_read(std::vector<C>& vec, Value const& value);
 
+    void json_write(STickCounter const& com, Writer<StringBuffer>& writer)
+    {
+        writer.Uint64(com.tick);
+    }
+
+    void json_read(STickCounter& com, Value const& value)
+    {
+        com.tick = value.GetUint64();
+    }
+
     void json_write(SWorld const& com, Writer<StringBuffer>& writer)
     {
         writer.StartObject();
@@ -349,6 +359,7 @@ GridWorld::registry create_empty_simulation_registry()
     using namespace GridWorld::Component;
     GridWorld::registry reg;
 
+    reg.ctx_or_set<STickCounter>();
     reg.ctx_or_set<SWorld>();
 
     return reg;
@@ -381,6 +392,9 @@ std::string GridWorld::Simulation::get_state_json()
     writer.Key("singletons");
     {
         writer.StartObject();
+
+        writer.Key("STickCounter");
+        json_write(reg.ctx<STickCounter>(), writer);
 
         writer.Key("SWorld");
         json_write(reg.ctx<SWorld>(), writer);
@@ -518,7 +532,9 @@ void GridWorld::Simulation::set_state_json(std::string json)
 
     {
         // Singletons
-        json_read(tmp.ctx_or_set<SWorld>(), singletons["SWorld"]);
+        json_read(tmp.ctx<STickCounter>(), singletons["STickCounter"]);
+
+        json_read(tmp.ctx<SWorld>(), singletons["SWorld"]);
     }
 
     {
