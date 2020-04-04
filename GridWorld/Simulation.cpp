@@ -11,6 +11,34 @@
 #include "components.h"
 #include "Systems.h"
 
+using unique_lock = std::unique_lock<std::mutex>;
+
+/*
+Create this object to ensure the simulation enters and exits the waiting
+state appropriately. Constructor returns when the simulation is waiting,
+and the destructor puts the simulation back into the running state.
+*/
+class GridWorld::Simulation::WaitGuard
+{
+public:
+    WaitGuard(Simulation& sim) : _sim(sim)
+    {
+        _sim.requested_state = SimulationState::waiting;
+        _sim.simulation_mutex.lock();
+    }
+
+    ~WaitGuard() noexcept
+    {
+        _sim.requested_state = SimulationState::running;
+        _sim.simulation_mutex.unlock();
+        _sim.simulation_waiter.notify_one();
+    }
+
+    WaitGuard(const WaitGuard&) = delete;
+    WaitGuard& operator=(const WaitGuard&) = delete;
+private:
+    Simulation& _sim;
+};
 
 namespace GridWorld::JSON
 {
@@ -370,13 +398,16 @@ GridWorld::registry create_empty_simulation_registry()
 GridWorld::Simulation::Simulation()
 {
     reg = create_empty_simulation_registry();
-    notification = ThreadNotification::none;
+    requested_state = SimulationState::running;
 }
 
 std::string GridWorld::Simulation::get_state_json()
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
+
+    WaitGuard wait_guard(*this);
+
     StringBuffer buf;
     Writer<StringBuffer> writer(buf);
 
@@ -491,6 +522,12 @@ void GridWorld::Simulation::set_state_json(std::string json)
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
+
+    if (simulation_thread.joinable())
+    {
+        throw std::exception("set_state_json cannot be used while simulation is running.");
+    }
+
     registry tmp = create_empty_simulation_registry();
 
     // parse input
@@ -568,16 +605,28 @@ void GridWorld::Simulation::set_state_json(std::string json)
 
 uint64_t GridWorld::Simulation::create_entity()
 {
+    if (simulation_thread.joinable())
+    {
+        throw std::exception("create_entity cannot be used while simulation is running.");
+    }
+
     return to_integral(reg.create());
 }
 
 void GridWorld::Simulation::destroy_entity(uint64_t eid)
 {
+    if (simulation_thread.joinable())
+    {
+        throw std::exception("destroy_entity cannot be used while simulation is running.");
+    }
+
     reg.destroy(EntityId{ eid });
 }
 
 std::vector<uint64_t> GridWorld::Simulation::get_all_entities()
 {
+    WaitGuard wait_guard(*this);
+
     std::vector<uint64_t> result;
     result.reserve(reg.size());
     const GridWorld::EntityId* data = reg.data();
@@ -596,7 +645,7 @@ void GridWorld::Simulation::start_simulation()
 {
     if (!simulation_thread.joinable())
     {
-        notification = ThreadNotification::none;
+        requested_state = SimulationState::running;
         simulation_thread = std::thread(&Simulation::simulation_loop, this);
     }
 }
@@ -605,7 +654,7 @@ void GridWorld::Simulation::stop_simulation()
 {
     if (simulation_thread.joinable())
     {
-        notification = ThreadNotification::stop;
+        requested_state = SimulationState::stopped;
         simulation_thread.join();
     }
 }
@@ -625,22 +674,23 @@ void update_tick(GridWorld::registry& reg)
 
 void GridWorld::Simulation::simulation_loop()
 {
-    std::unique_lock<std::mutex> simulation_lock(simulation_mutex);
+    unique_lock simulation_lock(simulation_mutex);
     while (true)
     {
-        switch (notification)
+        switch (requested_state)
         {
-            case ThreadNotification::none:
+            case SimulationState::running:
                 break;
-            case ThreadNotification::stop:
-                notification = ThreadNotification::none;
-                return;
-            case ThreadNotification::wait:
-                notification = ThreadNotification::none;
-                simulation_waiter.wait(simulation_lock);
-                break;
+            case SimulationState::waiting:
+                while (requested_state == SimulationState::waiting)
+                {
+                    simulation_waiter.wait(simulation_lock);
+                }
+                // restart the enclosing loop
+                continue;
+            case SimulationState::stopped:
             default:
-                break;
+                return;
         }
 
         update_tick(reg);

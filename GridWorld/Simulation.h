@@ -32,17 +32,19 @@ namespace GridWorld
     private:
         registry reg;
 
-        enum class ThreadNotification : uint32_t 
+        enum class SimulationState : uint32_t
         {
-            none, // no notification
-            stop, // thread halts as soon as it is able to
-            wait // thread waits as soon as it is able to
+            running, // no requested_state
+            stopped, // thread halts as soon as it is able to
+            waiting // thread waits as soon as it is able to
         };
-        ThreadNotification notification;
+        SimulationState requested_state;
 
         std::mutex simulation_mutex;
         std::condition_variable simulation_waiter;
         std::thread simulation_thread;
+
+        class WaitGuard;
 
 
         void simulation_loop();
