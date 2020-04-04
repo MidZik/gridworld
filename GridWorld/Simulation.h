@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 #include <memory>
 
 #include "Registry.h"
@@ -30,7 +32,16 @@ namespace GridWorld
     private:
         registry reg;
 
-        bool continue_running_simulation;
+        enum class ThreadNotification : uint32_t 
+        {
+            none, // no notification
+            stop, // thread halts as soon as it is able to
+            wait // thread waits as soon as it is able to
+        };
+        ThreadNotification notification;
+
+        std::mutex simulation_mutex;
+        std::condition_variable simulation_waiter;
         std::thread simulation_thread;
 
 

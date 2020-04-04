@@ -5,6 +5,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/document.h>
 #include <rapidjson/schema.h>
+#include <condition_variable>
 
 #include "Simulation.h"
 #include "components.h"
@@ -369,7 +370,7 @@ GridWorld::registry create_empty_simulation_registry()
 GridWorld::Simulation::Simulation()
 {
     reg = create_empty_simulation_registry();
-    continue_running_simulation = false;
+    notification = ThreadNotification::none;
 }
 
 std::string GridWorld::Simulation::get_state_json()
@@ -595,7 +596,7 @@ void GridWorld::Simulation::start_simulation()
 {
     if (!simulation_thread.joinable())
     {
-        continue_running_simulation = true;
+        notification = ThreadNotification::none;
         simulation_thread = std::thread(&Simulation::simulation_loop, this);
     }
 }
@@ -604,7 +605,7 @@ void GridWorld::Simulation::stop_simulation()
 {
     if (simulation_thread.joinable())
     {
-        continue_running_simulation = false;
+        notification = ThreadNotification::stop;
         simulation_thread.join();
     }
 }
@@ -624,9 +625,23 @@ void update_tick(GridWorld::registry& reg)
 
 void GridWorld::Simulation::simulation_loop()
 {
+    std::unique_lock<std::mutex> simulation_lock(simulation_mutex);
     while (true)
     {
-        if (!continue_running_simulation) break;
+        switch (notification)
+        {
+            case ThreadNotification::none:
+                break;
+            case ThreadNotification::stop:
+                notification = ThreadNotification::none;
+                return;
+            case ThreadNotification::wait:
+                notification = ThreadNotification::none;
+                simulation_waiter.wait(simulation_lock);
+                break;
+            default:
+                break;
+        }
 
         update_tick(reg);
     }
