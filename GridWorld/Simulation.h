@@ -29,12 +29,14 @@ namespace GridWorld
         void start_simulation();
 
         void stop_simulation();
+
+        void assign_component(uint64_t eid, std::string component_name);
     private:
         registry reg;
 
         enum class SimulationState : uint32_t
         {
-            running, // no requested_state
+            running,
             stopped, // thread halts as soon as it is able to
             waiting // thread waits as soon as it is able to
         };

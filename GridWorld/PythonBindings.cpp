@@ -29,6 +29,7 @@ PYBIND11_MODULE(simulation, m)
         .def("get_all_entities", &Simulation::get_all_entities)
         .def("start_simulation", &Simulation::start_simulation)
         .def("stop_simulation", &Simulation::stop_simulation)
+        .def("assign_component", &Simulation::assign_component)
         ;
 
     m.attr("null") = to_integral((EntityId)entt::null);

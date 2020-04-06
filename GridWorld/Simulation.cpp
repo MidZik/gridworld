@@ -659,6 +659,16 @@ void GridWorld::Simulation::stop_simulation()
     }
 }
 
+void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string component_name)
+{
+    using namespace Component;
+    EntityId eid = EntityId(eid_int);
+    if (component_name == "RNG")
+    {
+        reg.assign<RNG>(eid);
+    }
+}
+
 void update_tick(GridWorld::registry& reg)
 {
     using namespace GridWorld::Systems;
