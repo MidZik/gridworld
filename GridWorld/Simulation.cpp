@@ -77,6 +77,7 @@ namespace GridWorld::JSON
     {
         com.width = value["width"].GetInt();
         com.height = value["height"].GetInt();
+        com.reset_world();
     }
 
     void json_write(Position const& pos, Writer<StringBuffer>& writer)
