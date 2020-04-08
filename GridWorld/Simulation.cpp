@@ -663,6 +663,12 @@ void GridWorld::Simulation::stop_simulation()
 void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string component_name)
 {
     using namespace Component;
+
+    if (simulation_thread.joinable())
+    {
+        throw std::exception("assign_component cannot be used while simulation is running.");
+    }
+
     EntityId eid = EntityId(eid_int);
     if (component_name == "RNG")
     {
