@@ -16,7 +16,7 @@ namespace GridWorld
     public:
         Simulation();
 
-        std::string get_state_json();
+        std::string get_state_json() const;
 
         void set_state_json(std::string json);
 
@@ -24,7 +24,7 @@ namespace GridWorld
 
         void destroy_entity(uint64_t eid);
 
-        std::vector<uint64_t> get_all_entities();
+        std::vector<uint64_t> get_all_entities() const;
 
         void start_simulation();
 
@@ -32,7 +32,7 @@ namespace GridWorld
 
         void assign_component(uint64_t eid, std::string component_name);
 
-        std::vector<std::string> get_component_names();
+        std::vector<std::string> get_component_names() const;
     private:
         registry reg;
 
@@ -42,10 +42,10 @@ namespace GridWorld
             stopped, // thread halts as soon as it is able to
             waiting // thread waits as soon as it is able to
         };
-        SimulationState requested_state;
+        mutable SimulationState requested_state;
 
-        std::mutex simulation_mutex;
-        std::condition_variable simulation_waiter;
+        mutable std::mutex simulation_mutex;
+        mutable std::condition_variable simulation_waiter;
         std::thread simulation_thread;
 
         class WaitGuard;

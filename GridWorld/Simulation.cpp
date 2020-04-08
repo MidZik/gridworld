@@ -21,7 +21,7 @@ and the destructor puts the simulation back into the running state.
 class GridWorld::Simulation::WaitGuard
 {
 public:
-    WaitGuard(Simulation& sim) : _sim(sim)
+    WaitGuard(Simulation const& sim) : _sim(sim)
     {
         _sim.requested_state = SimulationState::waiting;
         _sim.simulation_mutex.lock();
@@ -37,7 +37,7 @@ public:
     WaitGuard(const WaitGuard&) = delete;
     WaitGuard& operator=(const WaitGuard&) = delete;
 private:
-    Simulation& _sim;
+    Simulation const& _sim;
 };
 
 namespace GridWorld::JSON
@@ -402,7 +402,7 @@ GridWorld::Simulation::Simulation()
     requested_state = SimulationState::running;
 }
 
-std::string GridWorld::Simulation::get_state_json()
+std::string GridWorld::Simulation::get_state_json() const
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
@@ -624,7 +624,7 @@ void GridWorld::Simulation::destroy_entity(uint64_t eid)
     reg.destroy(EntityId{ eid });
 }
 
-std::vector<uint64_t> GridWorld::Simulation::get_all_entities()
+std::vector<uint64_t> GridWorld::Simulation::get_all_entities() const
 {
     WaitGuard wait_guard(*this);
 
@@ -716,7 +716,7 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     }
 }
 
-std::vector<std::string> GridWorld::Simulation::get_component_names()
+std::vector<std::string> GridWorld::Simulation::get_component_names() const
 {
     return std::vector<std::string> {
         "Position",
