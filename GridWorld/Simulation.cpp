@@ -716,6 +716,22 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     }
 }
 
+std::vector<std::string> GridWorld::Simulation::get_component_names()
+{
+    return std::vector<std::string> {
+        "Position",
+        "Moveable",
+        "Name",
+        "RNG",
+        "SimpleBrain",
+        "SimpleBrainSeer",
+        "SimpleBrainMover",
+        "Predation",
+        "RandomMover",
+        "Scorable"
+    };
+}
+
 void update_tick(GridWorld::registry& reg)
 {
     using namespace GridWorld::Systems;

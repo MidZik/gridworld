@@ -31,6 +31,8 @@ namespace GridWorld
         void stop_simulation();
 
         void assign_component(uint64_t eid, std::string component_name);
+
+        std::vector<std::string> get_component_names();
     private:
         registry reg;
 
