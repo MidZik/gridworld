@@ -82,15 +82,6 @@ namespace GridWorld::Component
         }
     };
 
-    class NewEntityDef
-    {
-        virtual void create_entity() = 0;
-    };
-    struct SNewEntityQueue
-    {
-        std::vector<NewEntityDef*> queue = std::vector<NewEntityDef*>();
-    };
-
     struct Position
     {
         int x = 0;
