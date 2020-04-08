@@ -670,9 +670,49 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     }
 
     EntityId eid = EntityId(eid_int);
-    if (component_name == "RNG")
+    if (component_name == "Position")
+    {
+        reg.assign<Position>(eid);
+    }
+    else if (component_name == "Moveable")
+    {
+        reg.assign<Moveable>(eid);
+    }
+    else if (component_name == "Name")
+    {
+        reg.assign<Name>(eid);
+    }
+    else if (component_name == "RNG")
     {
         reg.assign<RNG>(eid);
+    }
+    else if (component_name == "SimpleBrain")
+    {
+        reg.assign<SimpleBrain>(eid);
+    }
+    else if (component_name == "SimpleBrainSeer")
+    {
+        reg.assign<SimpleBrainSeer>(eid);
+    }
+    else if (component_name == "SimpleBrainMover")
+    {
+        reg.assign<SimpleBrainMover>(eid);
+    }
+    else if (component_name == "Predation")
+    {
+        reg.assign<Predation>(eid);
+    }
+    else if (component_name == "RandomMover")
+    {
+        reg.assign<RandomMover>(eid);
+    }
+    else if (component_name == "Scorable")
+    {
+        reg.assign<Scorable>(eid);
+    }
+    else
+    {
+        throw std::exception(("Unknown component type passed to assign_component: " + component_name).c_str());
     }
 }
 
