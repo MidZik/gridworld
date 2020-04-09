@@ -3,9 +3,10 @@
 #include <cstdint>
 #include <Eigen/Dense>
 #include <pybind11/pybind11.h>
+#include "pcg_random.hpp"
 
 #include "Registry.h"
-#include "pcg_random.hpp"
+#include "Event.h"
 
 static int wrapi(int i, int lower_bound, int upper_bound)
 {
@@ -79,6 +80,17 @@ namespace GridWorld::Component
         int normalize_y(int y) const
         {
             return wrapi(y, 0, height);
+        }
+    };
+
+    struct SEventsLog
+    {
+        std::vector<Events::Event> events_last_tick;
+        std::vector<Events::Event> new_events;
+
+        void log_event(Events::Event&& e)
+        {
+            new_events.push_back(std::forward<Events::Event>(e));
         }
     };
 

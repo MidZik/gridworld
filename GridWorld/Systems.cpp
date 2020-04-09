@@ -547,3 +547,27 @@ void GridWorld::Systems::predation(registry & reg)
         }
     });
 }
+
+void GridWorld::Systems::evolution(registry & reg)
+{
+    using namespace Events;
+    STickCounter& tick_counter = reg.ctx<STickCounter>();
+
+    // once every 0x2000 ticks, multiples of 0x2000
+    if ((tick_counter.tick & 0x1FFF) == 0)
+    {
+        SEventsLog& event_log = reg.ctx<SEventsLog>();
+
+        Event e{ "evolution", "test data"};
+        event_log.log_event(std::move(e));
+    }
+}
+
+void GridWorld::Systems::finalize_event_log(registry & reg)
+{
+    SEventsLog& event_log = reg.ctx<SEventsLog>();
+
+    event_log.events_last_tick = std::move(event_log.new_events);
+
+    event_log.new_events.clear();
+}

@@ -17,4 +17,8 @@ namespace GridWorld::Systems
     void random_movement(registry& reg);
 
     void predation(registry& reg);
+
+    void evolution(registry& reg);
+
+    void finalize_event_log(registry& reg);
 }

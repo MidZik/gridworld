@@ -11,7 +11,7 @@
 #include "components.h"
 #include "Systems.h"
 
-using unique_lock = std::unique_lock<std::mutex>;
+using unique_lock = std::unique_lock<std::recursive_mutex>;
 
 /*
 Create this object to ensure the simulation enters and exits the waiting
@@ -392,6 +392,7 @@ GridWorld::registry create_empty_simulation_registry()
 
     reg.ctx_or_set<STickCounter>();
     reg.ctx_or_set<SWorld>();
+    reg.ctx_or_set<SEventsLog>();
 
     return reg;
 }
@@ -732,6 +733,11 @@ std::vector<std::string> GridWorld::Simulation::get_component_names() const
     };
 }
 
+void GridWorld::Simulation::set_event_callback(event_callback_function callback)
+{
+    event_callback = callback;
+}
+
 void update_tick(GridWorld::registry& reg)
 {
     using namespace GridWorld::Systems;
@@ -743,6 +749,8 @@ void update_tick(GridWorld::registry& reg)
     random_movement(reg);
     movement(reg);
     predation(reg);
+    evolution(reg);
+    finalize_event_log(reg);
 }
 
 void GridWorld::Simulation::simulation_loop()
@@ -767,5 +775,11 @@ void GridWorld::Simulation::simulation_loop()
         }
 
         update_tick(reg);
+
+        // Publish events that occured last tick
+        for (Events::Event& e : reg.ctx<Component::SEventsLog>().events_last_tick)
+        {
+            event_callback(e.name);
+        }
     }
 }

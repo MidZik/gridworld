@@ -99,6 +99,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="components.h" />
+    <ClInclude Include="Event.h" />
     <ClInclude Include="pcg_extras.hpp" />
     <ClInclude Include="pcg_random.hpp" />
     <ClInclude Include="pcg_uint128.hpp" />
@@ -109,6 +110,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="components.cpp" />
+    <ClCompile Include="Event.cpp" />
     <ClCompile Include="PythonBindings.cpp" />
     <ClCompile Include="Registry.cpp" />
     <ClCompile Include="Simulation.cpp" />

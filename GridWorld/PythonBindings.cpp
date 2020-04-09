@@ -3,6 +3,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
+#include <pybind11/functional.h>
 
 #include <entt/entity/entity.hpp>
 
@@ -31,6 +32,7 @@ PYBIND11_MODULE(simulation, m)
         .def("stop_simulation", &Simulation::stop_simulation)
         .def("assign_component", &Simulation::assign_component)
         .def("get_component_names", &Simulation::get_component_names)
+        .def("set_event_callback", &Simulation::set_event_callback)
         ;
 
     m.attr("null") = to_integral((EntityId)entt::null);

@@ -6,6 +6,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <memory>
+#include <functional>
 
 #include "Registry.h"
 
@@ -14,6 +15,8 @@ namespace GridWorld
     class Simulation
     {
     public:
+        using event_callback_function = std::function<void(std::string)>;
+
         Simulation();
 
         std::string get_state_json() const;
@@ -33,6 +36,8 @@ namespace GridWorld
         void assign_component(uint64_t eid, std::string component_name);
 
         std::vector<std::string> get_component_names() const;
+
+        void set_event_callback(event_callback_function callback);
     private:
         registry reg;
 
@@ -44,9 +49,11 @@ namespace GridWorld
         };
         mutable SimulationState requested_state;
 
-        mutable std::mutex simulation_mutex;
-        mutable std::condition_variable simulation_waiter;
+        mutable std::recursive_mutex simulation_mutex;
+        mutable std::condition_variable_any simulation_waiter;
         std::thread simulation_thread;
+
+        event_callback_function event_callback;
 
         class WaitGuard;
 
