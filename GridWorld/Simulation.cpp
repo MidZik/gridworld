@@ -720,6 +720,8 @@ void GridWorld::Simulation::set_state_json(std::string json)
         json_read(tmp.ctx<STickCounter>(), singletons["STickCounter"]);
 
         json_read(tmp.ctx<SWorld>(), singletons["SWorld"]);
+
+        json_read(tmp.ctx<STickCounter>(), singletons["STickCounter"]);
     }
 
     {
