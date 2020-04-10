@@ -630,7 +630,6 @@ const char * state_schema = R"xx(
     "id": "GridWorld/StateJson",
     "type": "object",
     "properties": {
-        "tick": { "type": "integer" },
         "entities": {
             "type": "array",
             "uniqueItems": true,
