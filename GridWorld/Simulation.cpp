@@ -7,9 +7,14 @@
 #include <rapidjson/schema.h>
 #include <condition_variable>
 
+#ifdef MEASURE_PERF_SIMULATION_LOOP
+#include <chrono>
+#endif
+
 #include "Simulation.h"
 #include "components.h"
 #include "Systems.h"
+#include "Event.h"
 
 using unique_lock = std::unique_lock<std::recursive_mutex>;
 
@@ -51,6 +56,12 @@ namespace GridWorld::JSON
     template<typename C>
     void json_read(std::vector<C>& vec, Value const& value);
 
+    template<typename C>
+    void json_write(std::map<std::string, C> const& map, Writer<StringBuffer>& writer);
+
+    template<typename C>
+    void json_read(std::map<std::string, C>& map, Value const& value);
+
     void json_write(STickCounter const& com, Writer<StringBuffer>& writer)
     {
         writer.Uint64(com.tick);
@@ -78,6 +89,21 @@ namespace GridWorld::JSON
         com.width = value["width"].GetInt();
         com.height = value["height"].GetInt();
         com.reset_world();
+    }
+
+    void json_write(SEventsLog const& com, Writer<StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("events_last_tick");
+        json_write(com.events_last_tick, writer);
+
+        writer.EndObject();
+    }
+
+    void json_read(SEventsLog& com, Value const& value)
+    {
+        json_read(com.events_last_tick, value["events_last_tick"]);
     }
 
     void json_write(Position const& pos, Writer<StringBuffer>& writer)
@@ -305,6 +331,95 @@ namespace GridWorld::JSON
         com.score = value["score"].GetInt();
     }
 
+    void json_write(Events::EventData const& event_data, Writer<StringBuffer>& writer)
+    {
+        using Events::EventData;
+
+        const EventData::data_variant& data = event_data.data;
+
+        if (std::holds_alternative<int>(data))
+        {
+            writer.Int(std::get<int>(data));
+        }
+        else if (std::holds_alternative<double>(data))
+        {
+            writer.Double(std::get<double>(data));
+        }
+        else if (std::holds_alternative<std::string>(data))
+        {
+            const std::string& str_data = std::get<std::string>(data);
+            writer.String(str_data.c_str(), str_data.length());
+        }
+        else if (std::holds_alternative<EventData::data_map>(data))
+        {
+            const EventData::data_map& map = std::get<EventData::data_map>(data);
+            json_write(map, writer);
+        }
+        else if (std::holds_alternative<EventData::data_vector>(data))
+        {
+            const EventData::data_vector& vec = std::get<EventData::data_vector>(data);
+            json_write(vec, writer);
+        }
+        else if (std::holds_alternative<std::monostate>(data))
+        {
+            writer.Null();
+        }
+    }
+
+    void json_read(Events::EventData& event_data, Value const& value)
+    {
+        if (value.IsInt())
+        {
+            event_data.data = value.GetInt();
+        }
+        else if (value.IsDouble())
+        {
+            event_data.data = value.GetDouble();
+        }
+        else if (value.IsString())
+        {
+            event_data.data = value.GetString();
+        }
+        else if (value.IsObject())
+        {
+            Events::EventData::data_map map;
+            json_read(map, value);
+            event_data.data = std::move(map);
+        }
+        else if (value.IsArray())
+        {
+            Events::EventData::data_vector vec;
+            json_read(vec, value);
+            event_data.data = std::move(vec);
+        }
+        else if (value.IsNull())
+        {
+            event_data.data = std::monostate();
+        }
+        else
+        {
+            throw std::exception("Error reading EventData JSON: invalid data format");
+        }
+    }
+
+    void json_write(Events::Event const& event, Writer<StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("name");
+        writer.String(event.name.c_str(), event.name.length());
+        writer.Key("data");
+        json_write(event.data, writer);
+
+        writer.EndObject();
+    }
+
+    void json_read(Events::Event& event, Value const& value)
+    {
+        event.name = value["name"].GetString();
+        json_read(event.data, value["data"]);
+    }
+
     template<typename C>
     void json_write(std::vector<C> const& vec, Writer<StringBuffer>& writer)
     {
@@ -327,6 +442,32 @@ namespace GridWorld::JSON
         for (int i = 0; i < vec.size(); i++)
         {
             json_read(vec[i], value[i]);
+        }
+    }
+
+    template<typename C>
+    void json_write(std::map<std::string, C> const& map, Writer<StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        for (auto const&[key, value] : map)
+        {
+            writer.Key(key.c_str(), key.length());
+            json_write(value, writer);
+        }
+
+        writer.EndObject();
+    }
+
+    template<typename C>
+    void json_read(std::map<std::string, C>& map, Value const& value)
+    {
+        map.clear();
+
+        for (Value::ConstMemberIterator itr = value.MemberBegin();
+             itr != value.MemberEnd(); ++itr)
+        {
+            json_read(map[itr->name.GetString()], itr->value);
         }
     }
 
@@ -434,6 +575,9 @@ std::string GridWorld::Simulation::get_state_json() const
 
         writer.Key("SWorld");
         json_write(reg.ctx<SWorld>(), writer);
+
+        writer.Key("SEventsLog");
+        json_write(reg.ctx<SEventsLog>(), writer);
 
         writer.EndObject();
     } // singletons
@@ -755,6 +899,12 @@ void update_tick(GridWorld::registry& reg)
 
 void GridWorld::Simulation::simulation_loop()
 {
+#ifdef MEASURE_PERF_SIMULATION_LOOP
+    using namespace std::chrono;
+
+    high_resolution_clock::time_point last_event_time = high_resolution_clock::now();
+#endif // MEASURE_PERF_SIMULATION_LOOP
+
     unique_lock simulation_lock(simulation_mutex);
     while (true)
     {
@@ -776,10 +926,38 @@ void GridWorld::Simulation::simulation_loop()
 
         update_tick(reg);
 
+#ifdef MEASURE_PERF_SIMULATION_LOOP
+        high_resolution_clock::time_point last_update_end_time = high_resolution_clock::now();
+#endif
+
         // Publish events that occured last tick
-        for (Events::Event& e : reg.ctx<Component::SEventsLog>().events_last_tick)
+        const auto& events_last_tick = reg.ctx<Component::SEventsLog>().events_last_tick;
+        if (events_last_tick.size() > 0)
         {
-            event_callback(e.name);
+            using namespace GridWorld::JSON;
+            using namespace rapidjson;
+
+            StringBuffer buf;
+            Writer<StringBuffer> writer(buf);
+
+            json_write(events_last_tick, writer);
+
+            event_callback(buf.GetString());
+
+#ifdef MEASURE_PERF_SIMULATION_LOOP
+            high_resolution_clock::time_point last_callback_end_time = high_resolution_clock::now();
+
+            duration<double, std::milli> total_dur = last_callback_end_time - last_event_time;
+            duration<double, std::milli> update_dur = last_update_end_time - last_event_time;
+            duration<double, std::milli> callback_dur = last_callback_end_time - last_update_end_time;
+
+            std::printf("Total time: %.2f, Update time: %.2f, Callback time: %.2f, Callback Ratio: %.2f%%\r\n",
+                        total_dur.count(), update_dur.count(), callback_dur.count(),
+                        (100 * callback_dur.count() / total_dur.count()));
+            std::fflush(stdout);
+
+            last_event_time = high_resolution_clock::now();
+#endif // MEASURE_PERF_SIMULATION_LOOP
         }
     }
 }
