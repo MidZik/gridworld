@@ -669,7 +669,7 @@ void GridWorld::Simulation::set_state_json(std::string json)
     using namespace GridWorld::JSON;
     using namespace rapidjson;
 
-    if (simulation_thread.joinable())
+    if (is_running())
     {
         throw std::exception("set_state_json cannot be used while simulation is running.");
     }
@@ -751,7 +751,7 @@ void GridWorld::Simulation::set_state_json(std::string json)
 
 uint64_t GridWorld::Simulation::create_entity()
 {
-    if (simulation_thread.joinable())
+    if (is_running())
     {
         throw std::exception("create_entity cannot be used while simulation is running.");
     }
@@ -761,7 +761,7 @@ uint64_t GridWorld::Simulation::create_entity()
 
 void GridWorld::Simulation::destroy_entity(uint64_t eid)
 {
-    if (simulation_thread.joinable())
+    if (is_running())
     {
         throw std::exception("destroy_entity cannot be used while simulation is running.");
     }
@@ -789,7 +789,7 @@ std::vector<uint64_t> GridWorld::Simulation::get_all_entities() const
 
 void GridWorld::Simulation::start_simulation()
 {
-    if (!simulation_thread.joinable())
+    if (!is_running())
     {
         requested_state = SimulationState::running;
         simulation_thread = std::thread(&Simulation::simulation_loop, this);
@@ -798,18 +798,23 @@ void GridWorld::Simulation::start_simulation()
 
 void GridWorld::Simulation::stop_simulation()
 {
-    if (simulation_thread.joinable())
+    if (is_running())
     {
         requested_state = SimulationState::stopped;
         simulation_thread.join();
     }
 }
 
+bool GridWorld::Simulation::is_running()
+{
+    return simulation_thread.joinable();
+}
+
 void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string component_name)
 {
     using namespace Component;
 
-    if (simulation_thread.joinable())
+    if (is_running())
     {
         throw std::exception("assign_component cannot be used while simulation is running.");
     }
