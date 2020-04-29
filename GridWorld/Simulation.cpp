@@ -544,6 +544,11 @@ GridWorld::Simulation::Simulation()
     requested_state = SimulationState::running;
 }
 
+uint64_t GridWorld::Simulation::get_tick() const
+{
+    return reg.ctx<Component::STickCounter>().tick;
+}
+
 std::string GridWorld::Simulation::get_state_json() const
 {
     using namespace GridWorld::JSON;

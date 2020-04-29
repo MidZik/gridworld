@@ -19,6 +19,8 @@ namespace GridWorld
 
         Simulation();
 
+        uint64_t get_tick() const;
+
         std::string get_state_json() const;
 
         void set_state_json(std::string json);

@@ -23,6 +23,7 @@ PYBIND11_MODULE(simulation, m)
 
     auto simulation_class = py::class_<Simulation>(m, "Simulation")
         .def(py::init<>())
+        .def("get_tick", &Simulation::get_tick)
         .def("get_state_json", &Simulation::get_state_json)
         .def("set_state_json", &Simulation::set_state_json)
         .def("create_entity", &Simulation::create_entity)
