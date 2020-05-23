@@ -39,6 +39,10 @@ namespace GridWorld
 
         void assign_component(uint64_t eid, std::string component_name);
 
+        void remove_component(uint64_t eid, std::string component_name);
+
+        void replace_component(uint64_t eid, std::string component_name, std::string component_json);
+
         std::vector<std::string> get_component_names() const;
 
         void set_event_callback(event_callback_function callback);

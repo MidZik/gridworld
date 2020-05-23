@@ -524,6 +524,20 @@ namespace GridWorld::JSON
             reg.assign<C>(eid);
         }
     }
+
+    template<typename C>
+    void json_read(C& com, std::string const& json)
+    {
+        // parse input
+        Document doc;
+        doc.Parse(json.c_str(), json.size());
+        if (doc.HasParseError())
+        {
+            throw std::invalid_argument("Input is not valid JSON.");
+        }
+
+        json_read(com, doc);
+    }
 }
 
 GridWorld::registry create_empty_simulation_registry()
@@ -869,6 +883,114 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     else
     {
         throw std::exception(("Unknown component type passed to assign_component: " + component_name).c_str());
+    }
+}
+
+void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string component_name)
+{
+    using namespace Component;
+
+    if (is_running())
+    {
+        throw std::exception("remove_component cannot be used while simulation is running.");
+    }
+
+    EntityId eid = EntityId(eid_int);
+    if (component_name == "Position")
+    {
+        reg.remove<Position>(eid);
+    }
+    else if (component_name == "Moveable")
+    {
+        reg.remove<Moveable>(eid);
+    }
+    else if (component_name == "Name")
+    {
+        reg.remove<Name>(eid);
+    }
+    else if (component_name == "RNG")
+    {
+        reg.remove<RNG>(eid);
+    }
+    else if (component_name == "SimpleBrain")
+    {
+        reg.remove<SimpleBrain>(eid);
+    }
+    else if (component_name == "SimpleBrainSeer")
+    {
+        reg.remove<SimpleBrainSeer>(eid);
+    }
+    else if (component_name == "SimpleBrainMover")
+    {
+        reg.remove<SimpleBrainMover>(eid);
+    }
+    else if (component_name == "Predation")
+    {
+        reg.remove<Predation>(eid);
+    }
+    else if (component_name == "RandomMover")
+    {
+        reg.remove<RandomMover>(eid);
+    }
+    else if (component_name == "Scorable")
+    {
+        reg.remove<Scorable>(eid);
+    }
+    else
+    {
+        throw std::exception(("Unknown component type passed to remove_component: " + component_name).c_str());
+    }
+}
+
+void GridWorld::Simulation::replace_component(uint64_t eid_int, std::string component_name, std::string component_json)
+{
+    using namespace Component;
+
+    if (is_running())
+    {
+        throw std::exception("replace_component cannot be used while simulation is running.");
+    }
+
+    EntityId eid = EntityId(eid_int);
+    if (component_name == "Position")
+    {
+        JSON::json_read(reg.get<Position>(eid), component_json);
+    }
+    else if (component_name == "Moveable")
+    {
+        JSON::json_read(reg.get<Moveable>(eid), component_json);
+    }
+    else if (component_name == "Name")
+    {
+        JSON::json_read(reg.get<Name>(eid), component_json);
+    }
+    else if (component_name == "RNG")
+    {
+        JSON::json_read(reg.get<RNG>(eid), component_json);
+    }
+    else if (component_name == "SimpleBrain")
+    {
+        JSON::json_read(reg.get<SimpleBrain>(eid), component_json);
+    }
+    else if (component_name == "SimpleBrainSeer")
+    {
+        JSON::json_read(reg.get<SimpleBrainSeer>(eid), component_json);
+    }
+    else if (component_name == "SimpleBrainMover")
+    {
+        JSON::json_read(reg.get<SimpleBrainMover>(eid), component_json);
+    }
+    else if (component_name == "Predation")
+    {
+        JSON::json_read(reg.get<Predation>(eid), component_json);
+    }
+    else if (component_name == "Scorable")
+    {
+        JSON::json_read(reg.get<Scorable>(eid), component_json);
+    }
+    else
+    {
+        throw std::exception(("Unknown component type passed to replace_component: " + component_name).c_str());
     }
 }
 
