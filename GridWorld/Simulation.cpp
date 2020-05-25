@@ -45,10 +45,35 @@ private:
     Simulation const& _sim;
 };
 
+namespace Reflect
+{
+    using namespace GridWorld::Component;
+
+#define REFLECT_COM_NAME(com_class) template<> constexpr auto com_name<com_class>() { return #com_class; }
+
+    template<class C>
+    constexpr auto com_name()
+    {
+        static_assert(false, "Component has no name.");
+    };
+
+    REFLECT_COM_NAME(Position);
+    REFLECT_COM_NAME(Moveable);
+    REFLECT_COM_NAME(Name);
+    REFLECT_COM_NAME(RNG);
+    REFLECT_COM_NAME(SimpleBrain);
+    REFLECT_COM_NAME(SimpleBrainSeer);
+    REFLECT_COM_NAME(SimpleBrainMover);
+    REFLECT_COM_NAME(Predation);
+    REFLECT_COM_NAME(RandomMover);
+    REFLECT_COM_NAME(Scorable);
+}
+
 namespace GridWorld::JSON
 {
     using namespace GridWorld::Component;
     using namespace rapidjson;
+
 
     template<typename C>
     void json_write(std::vector<C> const& vec, Writer<StringBuffer>& writer);
@@ -833,6 +858,7 @@ bool GridWorld::Simulation::is_running()
 void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string component_name)
 {
     using namespace Component;
+    using namespace Reflect;
 
     if (is_running())
     {
@@ -840,43 +866,43 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     }
 
     EntityId eid = EntityId(eid_int);
-    if (component_name == "Position")
+    if (component_name == com_name<Position>())
     {
         reg.assign<Position>(eid);
     }
-    else if (component_name == "Moveable")
+    else if (component_name == com_name<Moveable>())
     {
         reg.assign<Moveable>(eid);
     }
-    else if (component_name == "Name")
+    else if (component_name == com_name<Name>())
     {
         reg.assign<Name>(eid);
     }
-    else if (component_name == "RNG")
+    else if (component_name == com_name<RNG>())
     {
         reg.assign<RNG>(eid);
     }
-    else if (component_name == "SimpleBrain")
+    else if (component_name == com_name<SimpleBrain>())
     {
         reg.assign<SimpleBrain>(eid);
     }
-    else if (component_name == "SimpleBrainSeer")
+    else if (component_name == com_name<SimpleBrainSeer>())
     {
         reg.assign<SimpleBrainSeer>(eid);
     }
-    else if (component_name == "SimpleBrainMover")
+    else if (component_name == com_name<SimpleBrainMover>())
     {
         reg.assign<SimpleBrainMover>(eid);
     }
-    else if (component_name == "Predation")
+    else if (component_name == com_name<Predation>())
     {
         reg.assign<Predation>(eid);
     }
-    else if (component_name == "RandomMover")
+    else if (component_name == com_name<RandomMover>())
     {
         reg.assign<RandomMover>(eid);
     }
-    else if (component_name == "Scorable")
+    else if (component_name == com_name<Scorable>())
     {
         reg.assign<Scorable>(eid);
     }
@@ -889,6 +915,7 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
 void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string component_name)
 {
     using namespace Component;
+    using namespace Reflect;
 
     if (is_running())
     {
@@ -896,43 +923,43 @@ void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string compo
     }
 
     EntityId eid = EntityId(eid_int);
-    if (component_name == "Position")
+    if (component_name == com_name<Position>())
     {
         reg.remove<Position>(eid);
     }
-    else if (component_name == "Moveable")
+    else if (component_name == com_name<Moveable>())
     {
         reg.remove<Moveable>(eid);
     }
-    else if (component_name == "Name")
+    else if (component_name == com_name<Name>())
     {
         reg.remove<Name>(eid);
     }
-    else if (component_name == "RNG")
+    else if (component_name == com_name<RNG>())
     {
         reg.remove<RNG>(eid);
     }
-    else if (component_name == "SimpleBrain")
+    else if (component_name == com_name<SimpleBrain>())
     {
         reg.remove<SimpleBrain>(eid);
     }
-    else if (component_name == "SimpleBrainSeer")
+    else if (component_name == com_name<SimpleBrainSeer>())
     {
         reg.remove<SimpleBrainSeer>(eid);
     }
-    else if (component_name == "SimpleBrainMover")
+    else if (component_name == com_name<SimpleBrainMover>())
     {
         reg.remove<SimpleBrainMover>(eid);
     }
-    else if (component_name == "Predation")
+    else if (component_name == com_name<Predation>())
     {
         reg.remove<Predation>(eid);
     }
-    else if (component_name == "RandomMover")
+    else if (component_name == com_name<RandomMover>())
     {
         reg.remove<RandomMover>(eid);
     }
-    else if (component_name == "Scorable")
+    else if (component_name == com_name<Scorable>())
     {
         reg.remove<Scorable>(eid);
     }
@@ -945,6 +972,7 @@ void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string compo
 void GridWorld::Simulation::replace_component(uint64_t eid_int, std::string component_name, std::string component_json)
 {
     using namespace Component;
+    using namespace Reflect;
 
     if (is_running())
     {
@@ -952,39 +980,39 @@ void GridWorld::Simulation::replace_component(uint64_t eid_int, std::string comp
     }
 
     EntityId eid = EntityId(eid_int);
-    if (component_name == "Position")
+    if (component_name == com_name<Position>())
     {
         JSON::json_read(reg.get<Position>(eid), component_json);
     }
-    else if (component_name == "Moveable")
+    else if (component_name == com_name<Moveable>())
     {
         JSON::json_read(reg.get<Moveable>(eid), component_json);
     }
-    else if (component_name == "Name")
+    else if (component_name == com_name<Name>())
     {
         JSON::json_read(reg.get<Name>(eid), component_json);
     }
-    else if (component_name == "RNG")
+    else if (component_name == com_name<RNG>())
     {
         JSON::json_read(reg.get<RNG>(eid), component_json);
     }
-    else if (component_name == "SimpleBrain")
+    else if (component_name == com_name<SimpleBrain>())
     {
         JSON::json_read(reg.get<SimpleBrain>(eid), component_json);
     }
-    else if (component_name == "SimpleBrainSeer")
+    else if (component_name == com_name<SimpleBrainSeer>())
     {
         JSON::json_read(reg.get<SimpleBrainSeer>(eid), component_json);
     }
-    else if (component_name == "SimpleBrainMover")
+    else if (component_name == com_name<SimpleBrainMover>())
     {
         JSON::json_read(reg.get<SimpleBrainMover>(eid), component_json);
     }
-    else if (component_name == "Predation")
+    else if (component_name == com_name<Predation>())
     {
         JSON::json_read(reg.get<Predation>(eid), component_json);
     }
-    else if (component_name == "Scorable")
+    else if (component_name == com_name<Scorable>())
     {
         JSON::json_read(reg.get<Scorable>(eid), component_json);
     }
@@ -996,17 +1024,18 @@ void GridWorld::Simulation::replace_component(uint64_t eid_int, std::string comp
 
 std::vector<std::string> GridWorld::Simulation::get_component_names() const
 {
+    using namespace Reflect;
     return std::vector<std::string> {
-        "Position",
-        "Moveable",
-        "Name",
-        "RNG",
-        "SimpleBrain",
-        "SimpleBrainSeer",
-        "SimpleBrainMover",
-        "Predation",
-        "RandomMover",
-        "Scorable"
+        com_name<Position>(),
+        com_name<Moveable>(),
+        com_name<Name>(),
+        com_name<RNG>(),
+        com_name<SimpleBrain>(),
+        com_name<SimpleBrainSeer>(),
+        com_name<SimpleBrainMover>(),
+        com_name<Predation>(),
+        com_name<RandomMover>(),
+        com_name<Scorable>()
     };
 }
 
