@@ -6,6 +6,7 @@
 #include <rapidjson/document.h>
 #include <rapidjson/schema.h>
 #include <condition_variable>
+#include <unordered_map>
 
 #ifdef MEASURE_PERF_SIMULATION_LOOP
 #include <chrono>
@@ -67,6 +68,31 @@ namespace Reflect
     REFLECT_COM_NAME(Predation);
     REFLECT_COM_NAME(RandomMover);
     REFLECT_COM_NAME(Scorable);
+
+    template<class C>
+    constexpr std::pair<ENTT_ID_TYPE, const char*> id_name_pair()
+    {
+        return { entt::type_info<C>::id(), com_name<C>() };
+    };
+
+    static const std::unordered_map<ENTT_ID_TYPE, const char*> com_id_name_map
+    {
+        id_name_pair<Position>(),
+        id_name_pair<Moveable>(),
+        id_name_pair<Name>(),
+        id_name_pair<RNG>(),
+        id_name_pair<SimpleBrain>(),
+        id_name_pair<SimpleBrainSeer>(),
+        id_name_pair<SimpleBrainMover>(),
+        id_name_pair<Predation>(),
+        id_name_pair<RandomMover>(),
+        id_name_pair<Scorable>()
+    };
+
+    const char* id_to_com_name(ENTT_ID_TYPE id)
+    {
+        return com_id_name_map.at(id);
+    };
 }
 
 namespace GridWorld::JSON
@@ -1037,6 +1063,17 @@ std::vector<std::string> GridWorld::Simulation::get_component_names() const
         com_name<RandomMover>(),
         com_name<Scorable>()
     };
+}
+
+std::vector<std::string> GridWorld::Simulation::get_entity_component_names(uint64_t eid) const
+{
+    using namespace Reflect;
+    std::vector<std::string> result;
+    reg.visit(EntityId(eid), [&result](ENTT_ID_TYPE com_id)
+    {
+        result.push_back(id_to_com_name(com_id));
+    });
+    return result;
 }
 
 void GridWorld::Simulation::set_event_callback(event_callback_function callback)

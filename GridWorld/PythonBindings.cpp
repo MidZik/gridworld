@@ -36,6 +36,7 @@ PYBIND11_MODULE(simulation, m)
         .def("remove_component", &Simulation::remove_component)
         .def("replace_component", &Simulation::replace_component)
         .def("get_component_names", &Simulation::get_component_names)
+        .def("get_entity_component_names", &Simulation::get_entity_component_names)
         .def("set_event_callback", &Simulation::set_event_callback)
         ;
 

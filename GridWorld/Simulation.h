@@ -45,6 +45,8 @@ namespace GridWorld
 
         std::vector<std::string> get_component_names() const;
 
+        std::vector<std::string> get_entity_component_names(uint64_t eid) const;
+
         void set_event_callback(event_callback_function callback);
     private:
         registry reg;
