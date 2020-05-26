@@ -876,7 +876,7 @@ void GridWorld::Simulation::stop_simulation()
     }
 }
 
-bool GridWorld::Simulation::is_running()
+bool GridWorld::Simulation::is_running() const
 {
     return simulation_thread.joinable();
 }
@@ -936,6 +936,67 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     {
         throw std::exception(("Unknown component type passed to assign_component: " + component_name).c_str());
     }
+}
+
+std::string GridWorld::Simulation::get_component_json(uint64_t eid_int, std::string component_name) const
+{
+    using namespace Component;
+    using namespace Reflect;
+    using namespace GridWorld::JSON;
+    using namespace rapidjson;
+
+    EntityId eid = EntityId(eid_int);
+    StringBuffer buf;
+    Writer<StringBuffer> writer(buf);
+
+    WaitGuard wait_guard(*this);
+
+    if (component_name == com_name<Position>())
+    {
+        json_write(reg.get<Position>(eid), writer);
+    }
+    else if (component_name == com_name<Moveable>())
+    {
+        json_write(reg.get<Moveable>(eid), writer);
+    }
+    else if (component_name == com_name<Name>())
+    {
+        json_write(reg.get<Name>(eid), writer);
+    }
+    else if (component_name == com_name<RNG>())
+    {
+        json_write(reg.get<RNG>(eid), writer);
+    }
+    else if (component_name == com_name<SimpleBrain>())
+    {
+        json_write(reg.get<SimpleBrain>(eid), writer);
+    }
+    else if (component_name == com_name<SimpleBrainSeer>())
+    {
+        json_write(reg.get<SimpleBrainSeer>(eid), writer);
+    }
+    else if (component_name == com_name<SimpleBrainMover>())
+    {
+        json_write(reg.get<SimpleBrainMover>(eid), writer);
+    }
+    else if (component_name == com_name<Predation>())
+    {
+        json_write(reg.get<Predation>(eid), writer);
+    }
+    else if (component_name == com_name<RandomMover>())
+    {
+        writer.Null(); // tags have no data
+    }
+    else if (component_name == com_name<Scorable>())
+    {
+        json_write(reg.get<Scorable>(eid), writer);
+    }
+    else
+    {
+        throw std::exception(("Unknown component type passed to get_component_json: " + component_name).c_str());
+    }
+
+    return buf.GetString();
 }
 
 void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string component_name)
