@@ -892,6 +892,9 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     }
 
     EntityId eid = EntityId(eid_int);
+
+    WaitGuard wait_guard(*this);
+
     if (component_name == com_name<Position>())
     {
         reg.assign<Position>(eid);
@@ -1010,6 +1013,9 @@ void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string compo
     }
 
     EntityId eid = EntityId(eid_int);
+
+    WaitGuard wait_guard(*this);
+
     if (component_name == com_name<Position>())
     {
         reg.remove<Position>(eid);
@@ -1067,6 +1073,9 @@ void GridWorld::Simulation::replace_component(uint64_t eid_int, std::string comp
     }
 
     EntityId eid = EntityId(eid_int);
+
+    WaitGuard wait_guard(*this);
+
     if (component_name == com_name<Position>())
     {
         JSON::json_read(reg.get<Position>(eid), component_json);
@@ -1130,6 +1139,9 @@ std::vector<std::string> GridWorld::Simulation::get_entity_component_names(uint6
 {
     using namespace Reflect;
     std::vector<std::string> result;
+
+    WaitGuard wait_guard(*this);
+
     reg.visit(EntityId(eid), [&result](ENTT_ID_TYPE com_id)
     {
         result.push_back(id_to_com_name(com_id));
