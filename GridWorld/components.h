@@ -31,6 +31,11 @@ namespace GridWorld::Component
         int height = 20;
         std::vector<EntityId> map;
 
+        SWorld()
+        {
+            reset_world();
+        }
+
         void reset_world(int p_width, int p_height)
         {
             width = p_width;
