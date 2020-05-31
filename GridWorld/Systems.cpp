@@ -571,3 +571,19 @@ void GridWorld::Systems::finalize_event_log(registry & reg)
 
     event_log.new_events.clear();
 }
+
+void GridWorld::Systems::Util::rebuild_world(registry & reg)
+{
+    using namespace Component;
+
+    SWorld& world = reg.ctx<SWorld>();
+    world.reset_world();
+
+    auto position_view = reg.view<Position>();
+    for (EntityId eid : position_view)
+    {
+        auto& position = position_view.get(eid);
+
+        world.set_map_data(position.x, position.y, eid);
+    }
+}

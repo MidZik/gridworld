@@ -862,6 +862,10 @@ void GridWorld::Simulation::start_simulation()
 {
     if (!is_running())
     {
+        // Since the state may have been changed externally while the simulation
+        // wasn't running, ensure any hidden state is properly synced up
+        Systems::Util::rebuild_world(reg);
+
         requested_state = SimulationState::running;
         simulation_thread = std::thread(&Simulation::simulation_loop, this);
     }
