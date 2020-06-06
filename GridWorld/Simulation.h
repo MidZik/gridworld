@@ -49,6 +49,12 @@ namespace GridWorld
 
         std::vector<std::string> get_entity_component_names(uint64_t eid) const;
 
+        std::string get_singleton_json(std::string singleton_name) const;
+
+        void set_singleton_json(std::string singleton_name, std::string singleton_json);
+
+        std::vector<std::string> get_singleton_names() const;
+
         void set_event_callback(event_callback_function callback);
     private:
         registry reg;

@@ -69,6 +69,10 @@ namespace Reflect
     REFLECT_COM_NAME(RandomMover);
     REFLECT_COM_NAME(Scorable);
 
+    REFLECT_COM_NAME(STickCounter);
+    REFLECT_COM_NAME(SWorld);
+    REFLECT_COM_NAME(SEventsLog);
+
     template<class C>
     constexpr std::pair<ENTT_ID_TYPE, const char*> id_name_pair()
     {
@@ -1151,6 +1155,69 @@ std::vector<std::string> GridWorld::Simulation::get_entity_component_names(uint6
         result.push_back(id_to_com_name(com_id));
     });
     return result;
+}
+
+std::string GridWorld::Simulation::get_singleton_json(std::string singleton_name) const
+{
+    using namespace Component;
+    using namespace Reflect;
+    using namespace GridWorld::JSON;
+    using namespace rapidjson;
+
+    StringBuffer buf;
+    Writer<StringBuffer> writer(buf);
+
+    WaitGuard wait_guard(*this);
+
+    if (singleton_name == com_name<SWorld>())
+    {
+        json_write(reg.ctx<SWorld>(), writer);
+    }
+    else if (singleton_name == com_name<SEventsLog>())
+    {
+        json_write(reg.ctx<SEventsLog>(), writer);
+    }
+    else
+    {
+        throw std::exception(("Unknown component type passed to get_singleton_json: " + singleton_name).c_str());
+    }
+
+    return buf.GetString();
+}
+
+void GridWorld::Simulation::set_singleton_json(std::string singleton_name, std::string singleton_json)
+{
+    using namespace Component;
+    using namespace Reflect;
+
+    if (is_running())
+    {
+        throw std::exception("set_singleton_json cannot be used while simulation is running.");
+    }
+
+    WaitGuard wait_guard(*this);
+
+    if (singleton_name == com_name<SWorld>())
+    {
+        JSON::json_read(reg.ctx<SWorld>(), singleton_json);
+    }
+    else if (singleton_name == com_name<SEventsLog>())
+    {
+        JSON::json_read(reg.ctx<SEventsLog>(), singleton_json);
+    }
+    else
+    {
+        throw std::exception(("Unknown component type passed to set_singleton_json: " + singleton_name).c_str());
+    }
+}
+
+std::vector<std::string> GridWorld::Simulation::get_singleton_names() const
+{
+    using namespace Reflect;
+    return std::vector<std::string> {
+        com_name<SWorld>(),
+        com_name<SEventsLog>()
+    };
 }
 
 void GridWorld::Simulation::set_event_callback(event_callback_function callback)
