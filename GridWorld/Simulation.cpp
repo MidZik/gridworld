@@ -204,7 +204,7 @@ namespace GridWorld::JSON
         writer.Key("major_name");
         writer.String(name.major_name.c_str(), (SizeType)name.major_name.length());
         writer.Key("minor_name");
-        writer.String(name.minor_name.c_str(), (SizeType)name.major_name.length());
+        writer.String(name.minor_name.c_str(), (SizeType)name.minor_name.length());
 
         writer.EndObject();
     }
