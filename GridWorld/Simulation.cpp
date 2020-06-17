@@ -386,11 +386,9 @@ namespace GridWorld::JSON
         com.score = value["score"].GetInt();
     }
 
-    void json_write(Events::EventData const& event_data, Writer<StringBuffer>& writer)
+    void json_write(Events::Event::variant const& data, Writer<StringBuffer>& writer)
     {
-        using Events::EventData;
-
-        const EventData::data_variant& data = event_data.data;
+        using namespace Events;
 
         if (std::holds_alternative<int>(data))
         {
@@ -405,14 +403,14 @@ namespace GridWorld::JSON
             const std::string& str_data = std::get<std::string>(data);
             writer.String(str_data.c_str(), str_data.length());
         }
-        else if (std::holds_alternative<EventData::data_map>(data))
+        else if (std::holds_alternative<Event::variant_map>(data))
         {
-            const EventData::data_map& map = std::get<EventData::data_map>(data);
+            const Event::variant_map& map = std::get<Event::variant_map>(data);
             json_write(map, writer);
         }
-        else if (std::holds_alternative<EventData::data_vector>(data))
+        else if (std::holds_alternative<Event::variant_vector>(data))
         {
-            const EventData::data_vector& vec = std::get<EventData::data_vector>(data);
+            const Event::variant_vector& vec = std::get<Event::variant_vector>(data);
             json_write(vec, writer);
         }
         else if (std::holds_alternative<std::monostate>(data))
@@ -421,35 +419,36 @@ namespace GridWorld::JSON
         }
     }
 
-    void json_read(Events::EventData& event_data, Value const& value)
+    void json_read(Events::Event::variant& data, Value const& value)
     {
+        using namespace Events;
         if (value.IsInt())
         {
-            event_data.data = value.GetInt();
+            data = value.GetInt();
         }
         else if (value.IsDouble())
         {
-            event_data.data = value.GetDouble();
+            data = value.GetDouble();
         }
         else if (value.IsString())
         {
-            event_data.data = value.GetString();
+            data = value.GetString();
         }
         else if (value.IsObject())
         {
-            Events::EventData::data_map map;
+            Event::variant_map map;
             json_read(map, value);
-            event_data.data = std::move(map);
+            data = std::move(map);
         }
         else if (value.IsArray())
         {
-            Events::EventData::data_vector vec;
+            Event::variant_vector vec;
             json_read(vec, value);
-            event_data.data = std::move(vec);
+            data = std::move(vec);
         }
         else if (value.IsNull())
         {
-            event_data.data = std::monostate();
+            data = std::monostate();
         }
         else
         {

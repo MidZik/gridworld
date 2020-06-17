@@ -7,18 +7,17 @@
 
 namespace GridWorld::Events
 {
-    struct EventData
-    {
-        using data_map = std::map<std::string, EventData>;
-        using data_vector = std::vector<EventData>;
-        using data_variant = std::variant<std::monostate, int, double, std::string, data_map, data_vector>;
-
-        data_variant data;
-    };
-
     struct Event
     {
+        class variant;
+        using variant_map = std::map<std::string, variant>;
+        using variant_vector = std::vector<variant>;
+        class variant : public std::variant<std::monostate, int, double, std::string, variant_map, variant_vector>
+        {
+            using std::variant<std::monostate, int, double, std::string, variant_map, variant_vector>::variant;
+        };
+
         std::string name;
-        EventData data;
+        variant data;
     };
 }
