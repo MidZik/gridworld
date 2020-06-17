@@ -16,5 +16,10 @@ namespace GridWorld
         return static_cast<std::underlying_type_t<EntityId>>(eid);
     }
 
+    inline std::string to_string(const EntityId eid) noexcept
+    {
+        return std::to_string(to_integral(eid));
+    }
+
     using registry = entt::basic_registry<EntityId>;
 }

@@ -551,15 +551,205 @@ void GridWorld::Systems::predation(registry & reg)
 void GridWorld::Systems::evolution(registry & reg)
 {
     using namespace Events;
+
     STickCounter& tick_counter = reg.ctx<STickCounter>();
 
     // once every 0x2000 ticks, multiples of 0x2000
     if ((tick_counter.tick & 0x1FFF) == 0)
     {
+        SWorld& world = reg.ctx<SWorld>();
         SEventsLog& event_log = reg.ctx<SEventsLog>();
+        Event evo_event{ "evolution", Event::variant_map() };
+        Event::variant_map& evo_data_map = std::get<Event::variant_map>(evo_event.data);
 
-        Event e{ "evolution", "test data"};
-        event_log.log_event(std::move(e));
+        using score_log = std::pair<EntityId, int>;
+        std::vector<score_log> scores;
+        auto scorable_view = reg.view<Scorable>();
+        for (EntityId eid : scorable_view)
+        {
+            int score = scorable_view.get(eid).score;
+            scores.push_back({ eid, score });
+        }
+
+        // Log all scored entities + any supporting info (such as their names)
+        Event::variant_map scored_entities_data = Event::variant_map();
+        auto name_view = reg.view<Name>();
+        for (score_log& log : scores)
+        {
+            const auto& eid = log.first;
+            Event::variant_map datum;
+
+            datum.emplace("score", log.second);
+
+            if (name_view.contains(eid))
+            {
+                Name& name = name_view.get(eid);
+                datum.emplace("major_name", name.major_name);
+                datum.emplace("minor_name", name.minor_name);
+            }
+
+            scored_entities_data.emplace(to_string(eid), std::move(datum));
+        }
+        evo_data_map.emplace("scored_entities", std::move(scored_entities_data));
+
+        // Determine winners/losers based on score
+        // TODO: break ties with something other than ID? Ids may not be stable
+        auto cmp_scores = [](score_log& log1, score_log& log2)
+        {
+            return (log1.second > log2.second)
+                || (log1.second == log2.second && log1.first > log2.first);
+        };
+        std::sort(scores.begin(), scores.end(), cmp_scores);
+
+        std::vector<EntityId> winners;
+        Event::variant_vector winners_data;
+        std::vector<EntityId> losers;
+        Event::variant_vector losers_data;
+        int winner_count = 6;
+        for (score_log& log : scores)
+        {
+            if (winners.size() < winner_count)
+            {
+                winners.push_back(log.first);
+                winners_data.emplace_back(to_string(log.first));
+            }
+            else
+            {
+                losers.push_back(log.first);
+                losers_data.emplace_back(to_string(log.first));
+            }
+        }
+        evo_data_map.emplace("winners", std::move(winners_data));
+        evo_data_map.emplace("losers", std::move(losers_data));
+
+        // Perform evolution
+        // Kill losers
+        for (EntityId loser : losers)
+        {
+            if (Position* pos = reg.try_get<Position>(loser))
+            {
+                world.set_map_data(pos->x, pos->y, entt::null);
+            }
+            reg.destroy(loser);
+        }
+
+        std::vector<int> available_indicies;
+        for (int i = 0; i < world.map.size(); ++i)
+        {
+            if (world.map[i] == entt::null)
+            {
+                available_indicies.push_back(i);
+            }
+        }
+
+        // Create children from winners
+        Event::variant_map new_entities;
+        for (EntityId winner : winners)
+        {
+            // Only entities with RNG components are "evolvable"
+            if (RNG* parent_rng = reg.try_get<RNG>(winner))
+            {
+                EntityId child_eid = reg.create();
+#pragma warning( suppress: 4996 )
+                reg.stamp(child_eid, reg, winner);
+
+                RNG& child_rng = reg.get<RNG>(child_eid);
+                child_rng.seed((*parent_rng)());
+
+                if (Position* child_pos = reg.try_get<Position>(child_eid))
+                {
+                    uint32_t available_index = child_rng() % available_indicies.size();
+                    int new_pos_index = available_indicies[available_index];
+                    available_indicies[available_index] = available_indicies.back();
+                    available_indicies.pop_back();
+
+                    child_pos->x = world.get_map_index_x(new_pos_index);
+                    child_pos->y = world.get_map_index_y(new_pos_index);
+                    assert(world.map[new_pos_index] == entt::null);
+                    world.map[new_pos_index] = child_eid;
+                }
+
+                if (SimpleBrain* child_brain = reg.try_get<SimpleBrain>(child_eid))
+                {
+                    float chance = child_brain->child_mutation_chance;
+                    float strength = child_brain->child_mutation_strength;
+
+                    auto randf = [&child_rng]()
+                    {
+                        return (float)child_rng() / (float)UINT32_MAX;
+                    };
+
+                    for (SynapseMat& syn_mat : child_brain->synapses)
+                    {
+                        for (int i = 0; i < syn_mat.size(); ++i)
+                        {
+                            bool mutation_occurs = randf() <= chance;
+                            float mutation_amount = (randf() - 0.5f) * strength;
+                            syn_mat(i) += std::clamp(mutation_occurs * mutation_amount, -1.f, 1.f);
+                        }
+                    }
+                }
+
+                if (Name* child_name = reg.try_get<Name>(child_eid))
+                {
+                    child_name->minor_name = "T" + std::to_string(tick_counter.tick) + "-P" + to_string(winner);
+                }
+
+                new_entities[to_string(child_eid)] = { to_string(winner) };
+            }
+        }
+
+        // Create new completely randomized entities
+        for (int i = 0; i < 3; ++i)
+        {
+            EntityId eid = reg.create();
+
+            auto& name = reg.assign<Name>(eid);
+            name.major_name = "T" + std::to_string(tick_counter.tick) + "-I" + std::to_string(i);
+            name.minor_name = "T" + std::to_string(tick_counter.tick) + "-ROOT";
+
+            auto& rng = reg.assign<RNG>(eid);
+            rng.seed(tick_counter.tick * 3 + i);
+
+            auto randf = [&rng]()
+            {
+                return (float)rng() / (float)UINT32_MAX;
+            };
+
+            auto& brain = reg.assign<SimpleBrain>(eid);
+            brain.child_mutation_chance = 0.5f;
+            brain.child_mutation_strength = 0.2f;
+
+            for (SynapseMat& syn_mat : brain.synapses)
+            {
+                for (int i = 0; i < syn_mat.size(); ++i)
+                {
+                    syn_mat(i) = (randf() - 0.5f) * 2.0f;
+                }
+            }
+
+            auto& pos = reg.assign<Position>(eid);
+            uint32_t available_index = rng() % available_indicies.size();
+            int new_pos_index = available_indicies[available_index];
+            available_indicies[available_index] = available_indicies.back();
+            available_indicies.pop_back();
+
+            pos.x = world.get_map_index_x(new_pos_index);
+            pos.y = world.get_map_index_y(new_pos_index);
+            assert(world.map[new_pos_index] == entt::null);
+            world.map[new_pos_index] = eid;
+
+            reg.assign<SimpleBrainSeer>(eid);
+            reg.assign<SimpleBrainMover>(eid);
+            reg.assign<Moveable>(eid);
+            reg.assign<Scorable>(eid);
+
+            new_entities[to_string(eid)] = {};
+        }
+
+        evo_data_map.emplace("new_entities", std::move(new_entities));
+
+        event_log.log_event(std::move(evo_event));
     }
 }
 
