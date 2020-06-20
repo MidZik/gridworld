@@ -1284,7 +1284,9 @@ void GridWorld::Simulation::simulation_loop()
 
             json_write(events_last_tick, writer);
 
+            simulation_lock.unlock();
             event_callback(buf.GetString());
+            simulation_lock.lock();
 
 #ifdef MEASURE_PERF_SIMULATION_LOOP
             high_resolution_clock::time_point last_callback_end_time = high_resolution_clock::now();
