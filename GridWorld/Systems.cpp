@@ -428,13 +428,14 @@ void GridWorld::Systems::simple_brain_seer(registry & reg)
 
     auto simple_brain_view = reg.view<SimpleBrain, SimpleBrainSeer, Position>();
     auto predator_view = reg.view<Predation>();
+    std::vector<map_lookup_result> map_data;
+    map_data.reserve(20);
 
-    simple_brain_view.each([&world, predator_view](SimpleBrain& brain, SimpleBrainSeer& seer, Position& position)
+    simple_brain_view.each([&world, &predator_view, &map_data](SimpleBrain& brain, SimpleBrainSeer& seer, Position& position)
     {
         NeuronMat& input_neurons = brain.neurons[0];
 
         int cur_neuron_offset = seer.neuron_offset;
-        std::vector<map_lookup_result> map_data;
 
         _get_map_data_in_radius(world, position.x, position.y, seer.sight_radius, map_data);
 
