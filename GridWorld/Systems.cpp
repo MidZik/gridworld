@@ -137,10 +137,9 @@ void _add_movement_info(EntityId eid, SWorld& world, Moveable& moveable, Positio
     }
     else
     {
-        _MovementInfo temp;
-        temp.map_index = cur_map_index;
-        temp.eid = eid;
-        cur_movement_info = &movement_nodes.emplace(cur_map_index, temp).first->second;
+        cur_movement_info = &movement_nodes[cur_map_index];
+        cur_movement_info->map_index = cur_map_index;
+        cur_movement_info->eid = eid;
     }
 
     _MovementInfo* new_movement_info = NULL;
@@ -151,12 +150,11 @@ void _add_movement_info(EntityId eid, SWorld& world, Moveable& moveable, Positio
     }
     else
     {
-        _MovementInfo temp;
-        temp.map_index = new_map_index;
-        temp.eid = world.map[new_map_index];
-        new_movement_info = &movement_nodes.emplace(new_map_index, temp).first->second;
-        movement_entry_nodes.insert(new_movement_info);
+        new_movement_info = &movement_nodes[new_map_index];
+        new_movement_info->map_index = new_map_index;
+        new_movement_info->eid = world.map[new_map_index];
         new_movement_info->is_entry_node = true;
+        movement_entry_nodes.insert(new_movement_info);
     }
 
     cur_movement_info->net_force = net_force;
