@@ -566,8 +566,9 @@ void GridWorld::Systems::evolution(registry & reg)
         auto scorable_view = reg.view<Scorable>();
         for (EntityId eid : scorable_view)
         {
-            int score = scorable_view.get(eid).score;
-            scores.push_back({ eid, score });
+            Scorable& scorable = scorable_view.get(eid);
+            scores.push_back({ eid, scorable.score });
+            scorable.score = 0;
         }
 
         // Log all scored entities + any supporting info (such as their names)
