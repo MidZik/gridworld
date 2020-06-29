@@ -20,6 +20,13 @@ static int wrapi(int i, int lower_bound, int upper_bound)
 
 namespace GridWorld::Component
 {
+    struct SSimulationConfig
+    {
+        uint32_t evo_ticks_per_evolution = 10000;
+        uint32_t evo_winner_count = 6;
+        uint32_t evo_new_entity_count = 3;
+    };
+
     struct STickCounter
     {
         uint64_t tick;

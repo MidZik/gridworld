@@ -551,10 +551,10 @@ void GridWorld::Systems::evolution(registry & reg)
 {
     using namespace Events;
 
+    SSimulationConfig& sim_config = reg.ctx<SSimulationConfig>();
     STickCounter& tick_counter = reg.ctx<STickCounter>();
 
-    // once every 0x2000 ticks, multiples of 0x2000
-    if ((tick_counter.tick & 0x1FFF) == 0)
+    if ((tick_counter.tick % sim_config.evo_ticks_per_evolution) == 0)
     {
         SWorld& world = reg.ctx<SWorld>();
         SEventsLog& event_log = reg.ctx<SEventsLog>();
@@ -604,10 +604,9 @@ void GridWorld::Systems::evolution(registry & reg)
         Event::variant_vector winners_data;
         std::vector<EntityId> losers;
         Event::variant_vector losers_data;
-        int winner_count = 6;
         for (score_log& log : scores)
         {
-            if (winners.size() < winner_count)
+            if (winners.size() < sim_config.evo_winner_count)
             {
                 winners.push_back(log.first);
                 winners_data.emplace_back(to_string(log.first));
@@ -699,7 +698,7 @@ void GridWorld::Systems::evolution(registry & reg)
         }
 
         // Create new completely randomized entities
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < sim_config.evo_new_entity_count; ++i)
         {
             EntityId eid = reg.create();
 

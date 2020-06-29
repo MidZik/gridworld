@@ -69,6 +69,7 @@ namespace Reflect
     REFLECT_COM_NAME(RandomMover);
     REFLECT_COM_NAME(Scorable);
 
+    REFLECT_COM_NAME(SSimulationConfig);
     REFLECT_COM_NAME(STickCounter);
     REFLECT_COM_NAME(SWorld);
     REFLECT_COM_NAME(SEventsLog);
@@ -116,6 +117,27 @@ namespace GridWorld::JSON
 
     template<typename C>
     void json_read(std::map<std::string, C>& map, Value const& value);
+
+    void json_write(SSimulationConfig const& com, Writer<StringBuffer>& writer)
+    {
+        writer.StartObject();
+
+        writer.Key("evo_ticks_per_evolution");
+        writer.Uint(com.evo_ticks_per_evolution);
+        writer.Key("evo_winner_count");
+        writer.Uint(com.evo_winner_count);
+        writer.Key("evo_new_entity_count");
+        writer.Uint(com.evo_new_entity_count);
+
+        writer.EndObject();
+    }
+
+    void json_read(SSimulationConfig& com, Value const& value)
+    {
+        com.evo_ticks_per_evolution = value["evo_ticks_per_evolution"].GetUint();
+        com.evo_winner_count = value["evo_winner_count"].GetUint();
+        com.evo_new_entity_count = value["evo_new_entity_count"].GetUint();
+    }
 
     void json_write(STickCounter const& com, Writer<StringBuffer>& writer)
     {
@@ -599,6 +621,7 @@ GridWorld::registry create_empty_simulation_registry()
     using namespace GridWorld::Component;
     GridWorld::registry reg;
 
+    reg.ctx_or_set<SSimulationConfig>();
     reg.ctx_or_set<STickCounter>();
     reg.ctx_or_set<SWorld>();
     reg.ctx_or_set<SEventsLog>();
@@ -642,6 +665,9 @@ std::string GridWorld::Simulation::get_state_json() const
     writer.Key("singletons");
     {
         writer.StartObject();
+
+        writer.Key("SSimulationConfig");
+        json_write(reg.ctx<SSimulationConfig>(), writer);
 
         writer.Key("STickCounter");
         json_write(reg.ctx<STickCounter>(), writer);
@@ -790,6 +816,11 @@ void GridWorld::Simulation::set_state_json(std::string json)
 
     {
         // Singletons
+        if (singletons.HasMember("SSimulationConfig"))
+        {
+            json_read(tmp.ctx<SSimulationConfig>(), singletons["SSimulationConfig"]);
+        }
+
         json_read(tmp.ctx<STickCounter>(), singletons["STickCounter"]);
 
         json_read(tmp.ctx<SWorld>(), singletons["SWorld"]);
@@ -1176,6 +1207,10 @@ std::string GridWorld::Simulation::get_singleton_json(std::string singleton_name
     {
         json_write(reg.ctx<SEventsLog>(), writer);
     }
+    else if (singleton_name == com_name<SSimulationConfig>())
+    {
+        json_write(reg.ctx<SSimulationConfig>(), writer);
+    }
     else
     {
         throw std::exception(("Unknown component type passed to get_singleton_json: " + singleton_name).c_str());
@@ -1204,6 +1239,10 @@ void GridWorld::Simulation::set_singleton_json(std::string singleton_name, std::
     {
         JSON::json_read(reg.ctx<SEventsLog>(), singleton_json);
     }
+    else if (singleton_name == com_name<SSimulationConfig>())
+    {
+        JSON::json_read(reg.ctx<SSimulationConfig>(), singleton_json);
+    }
     else
     {
         throw std::exception(("Unknown component type passed to set_singleton_json: " + singleton_name).c_str());
@@ -1214,6 +1253,7 @@ std::vector<std::string> GridWorld::Simulation::get_singleton_names() const
 {
     using namespace Reflect;
     return std::vector<std::string> {
+        com_name<SSimulationConfig>(),
         com_name<SWorld>(),
         com_name<SEventsLog>()
     };
