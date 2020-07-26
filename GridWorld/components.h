@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <Eigen/Dense>
-#include <pybind11/pybind11.h>
 #include "pcg_random.hpp"
 
 #include "Registry.h"

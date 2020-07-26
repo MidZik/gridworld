@@ -12,5 +12,3 @@
 // reference additional headers your program requires here
 #include <cstdint>
 #include "pcg_random.hpp"
-
-#include <pybind11/pybind11.h>
