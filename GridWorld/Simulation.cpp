@@ -1314,7 +1314,7 @@ void GridWorld::Simulation::simulation_loop()
 
         // Publish events that occured last tick
         const auto& events_last_tick = reg.ctx<Component::SEventsLog>().events_last_tick;
-        if (events_last_tick.size() > 0)
+        if (events_last_tick.size() > 0 && event_callback != nullptr)
         {
             using namespace GridWorld::JSON;
             using namespace rapidjson;

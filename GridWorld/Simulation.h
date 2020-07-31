@@ -15,7 +15,7 @@ namespace GridWorld
     class Simulation
     {
     public:
-        using event_callback_function = std::function<void(std::string)>;
+        using event_callback_function = void(const char*);
 
         Simulation();
 
@@ -71,7 +71,7 @@ namespace GridWorld
         mutable std::condition_variable_any simulation_waiter;
         std::thread simulation_thread;
 
-        event_callback_function event_callback;
+        event_callback_function* event_callback;
 
         class WaitGuard;
 

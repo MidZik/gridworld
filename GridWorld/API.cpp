@@ -146,9 +146,5 @@ API_EXPORT void get_singleton_names(void* ptr, cstr_result_callback callback)
 
 API_EXPORT void set_event_callback(void* ptr, cstr_result_callback callback)
 {
-    auto event_callback = [callback](std::string s) {
-        callback(s.c_str());
-    };
-
-    sim(ptr)->set_event_callback(event_callback);
+    sim(ptr)->set_event_callback(callback);
 }
