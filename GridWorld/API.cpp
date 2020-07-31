@@ -81,7 +81,8 @@ API_EXPORT void stop_simulation(void* ptr)
     return sim(ptr)->stop_simulation();
 }
 
-API_EXPORT bool is_running(void* ptr)
+// NOTE: For C interface compatibility, bool is returned as int
+API_EXPORT int is_running(void* ptr)
 {
     return sim(ptr)->is_running();
 }
