@@ -616,6 +616,437 @@ namespace GridWorld::JSON
     }
 }
 
+namespace GridWorld::Binary
+{
+    using namespace GridWorld::Component;
+    using buffer = std::vector<char>;
+
+    template<class T>
+    void push_into_buffer(buffer& buf, const T& obj);
+
+    template<class T>
+    size_t copy_from_buffer(const char* buf, const char* buf_end, T& obj);
+
+    template<class T>
+    void push_into_buffer(buffer& buf, const T* obj_array, size_t count);
+
+    template<class T>
+    size_t copy_from_buffer(const char* buf, const char* buf_end, T* obj_array, size_t count);
+
+    template<class T>
+    void push_into_buffer(buffer& buf, const std::vector<T>& vec);
+
+    template<class T>
+    size_t copy_from_buffer(const char* buf, const char* buf_end, std::vector<T>& vec);
+
+    template<class K, class V>
+    void push_into_buffer(buffer& buf, const std::map<K, V>& map);
+
+    template<class K, class V>
+    size_t copy_from_buffer(const char* buf, const char* buf_end, std::map<K, V>& map);
+
+    template<class T>
+    void push_array_into_buffer(buffer& buf, const T* obj_array, size_t count);
+
+    void push_into_buffer(buffer& buf, const char* data, size_t len)
+    {
+        buf.insert(buf.end(), data, data + len);
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, char* dest, size_t len)
+    {
+        if (buf + len > buf_end)
+        {
+            throw std::runtime_error("Failed to copy from buffer: source too small");
+        }
+        memcpy(dest, buf, len);
+        return len;
+    }
+
+    void push_into_buffer(buffer& buf, const std::string& obj)
+    {
+        push_into_buffer(buf, obj.size());
+        push_into_buffer(buf, obj.c_str(), obj.size());
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, std::string& obj)
+    {
+        size_t offset = 0;
+        size_t count = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, count);
+
+        if (buf + offset + count > buf_end)
+        {
+            throw std::runtime_error("Failed to copy from buffer: source too small");
+        }
+
+        obj = std::string(buf + offset, count);
+
+        return offset + count;
+    }
+
+    void push_into_buffer(buffer& buf, const SWorld& obj)
+    {
+        push_into_buffer(buf, obj.width);
+        push_into_buffer(buf, obj.height);
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, SWorld& obj)
+    {
+        size_t offset = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, obj.width);
+        offset += copy_from_buffer(buf + offset, buf_end, obj.height);
+
+        return offset;
+    }
+
+    void push_into_buffer(buffer& buf, const Events::Event::variant& obj)
+    {
+        using namespace Events;
+
+        if (std::holds_alternative<int>(obj))
+        {
+            push_into_buffer(buf, (char)1);
+            push_into_buffer(buf, std::get<int>(obj));
+        }
+        else if (std::holds_alternative<double>(obj))
+        {
+            push_into_buffer(buf, (char)2);
+            push_into_buffer(buf, std::get<double>(obj));
+        }
+        else if (std::holds_alternative<std::string>(obj))
+        {
+            push_into_buffer(buf, (char)3);
+            const std::string& str = std::get<std::string>(obj);
+            push_into_buffer(buf, str);
+        }
+        else if (std::holds_alternative<Event::variant_map>(obj))
+        {
+            push_into_buffer(buf, (char)4);
+            const Event::variant_map& map = std::get<Event::variant_map>(obj);
+            push_into_buffer(buf, map);
+        }
+        else if (std::holds_alternative<Event::variant_vector>(obj))
+        {
+            push_into_buffer(buf, (char)5);
+            const Event::variant_vector& vec = std::get<Event::variant_vector>(obj);
+            push_into_buffer(buf, vec);
+        }
+        else if (std::holds_alternative<std::monostate>(obj))
+        {
+            push_into_buffer(buf, (char)0);
+        }
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, Events::Event::variant& obj)
+    {
+        using namespace Events;
+
+        size_t offset = 0;
+        char type;
+        offset += copy_from_buffer(buf + offset, buf_end, type);
+        switch (type)
+        {
+        case 0:
+        {
+            obj = std::monostate();
+            break;
+        }
+        case 1:
+        {
+            int result;
+            offset += copy_from_buffer(buf + offset, buf_end, result);
+            obj = result;
+            break;
+        }
+        case 2:
+        {
+            double result;
+            offset += copy_from_buffer(buf + offset, buf_end, result);
+            obj = result;
+            break;
+        }
+        case 3:
+        {
+            std::string result;
+            offset += copy_from_buffer(buf + offset, buf_end, result);
+            obj = std::move(result);
+            break;
+        }
+        case 4:
+        {
+            Event::variant_map result;
+            offset += copy_from_buffer(buf + offset, buf_end, result);
+            obj = std::move(result);
+            break;
+        }
+        case 5:
+        {
+            Event::variant_vector result;
+            offset += copy_from_buffer(buf + offset, buf_end, result);
+            obj = std::move(result);
+            break;
+        }
+        default:
+            throw std::out_of_range("Unknown event variant type encountered while copying from buffer.");
+        }
+
+        return offset;
+    }
+
+    void push_into_buffer(buffer& buf, const Events::Event& obj)
+    {
+        push_into_buffer(buf, obj.name);
+        push_into_buffer(buf, obj.data);
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, Events::Event& obj)
+    {
+        size_t offset = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, obj.name);
+        offset += copy_from_buffer(buf + offset, buf_end, obj.data);
+        return offset;
+    }
+
+    void push_into_buffer(buffer& buf, const SEventsLog& obj)
+    {
+        push_into_buffer(buf, obj.events_last_tick);
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, SEventsLog& obj)
+    {
+        return copy_from_buffer(buf, buf_end, obj.events_last_tick);
+    }
+
+    void push_into_buffer(buffer& buf, const Name& obj)
+    {
+        push_into_buffer(buf, obj.major_name);
+        push_into_buffer(buf, obj.minor_name);
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, Name& obj)
+    {
+        size_t offset = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, obj.major_name);
+        offset += copy_from_buffer(buf + offset, buf_end, obj.minor_name);
+        return offset;
+    }
+
+    void push_into_buffer(buffer& buf, const SynapseMat& obj)
+    {
+        push_into_buffer(buf, obj.rows());
+        push_into_buffer(buf, obj.cols());
+        push_into_buffer(buf, obj.data(), obj.size());
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, SynapseMat& obj)
+    {
+        size_t offset = 0;
+        Eigen::Index rows, cols;
+        offset += copy_from_buffer(buf + offset, buf_end, rows);
+        offset += copy_from_buffer(buf + offset, buf_end, cols);
+        obj.resize(rows, cols);
+        offset += copy_from_buffer(buf + offset, buf_end, obj.data(), obj.size());
+        return offset;
+    }
+
+    void push_into_buffer(buffer& buf, const NeuronMat& obj)
+    {
+        push_into_buffer(buf, obj.cols());
+        push_into_buffer(buf, obj.data(), obj.size());
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, NeuronMat& obj)
+    {
+        size_t offset = 0;
+        Eigen::Index cols;
+        offset += copy_from_buffer(buf + offset, buf_end, cols);
+        obj.resize(cols);
+        offset += copy_from_buffer(buf + offset, buf_end, obj.data(), obj.size());
+        return offset;
+    }
+
+    void push_into_buffer(buffer& buf, const SimpleBrain& obj)
+    {
+        push_into_buffer(buf, obj.child_mutation_chance);
+        push_into_buffer(buf, obj.child_mutation_strength);
+        push_into_buffer(buf, obj.synapses);
+        push_into_buffer(buf, obj.neurons);
+    }
+
+    size_t copy_from_buffer(const char* buf, const char* buf_end, SimpleBrain& obj)
+    {
+        size_t offset = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, obj.child_mutation_chance);
+        offset += copy_from_buffer(buf + offset, buf_end, obj.child_mutation_strength);
+        offset += copy_from_buffer(buf + offset, buf_end, obj.synapses);
+        offset += copy_from_buffer(buf + offset, buf_end, obj.neurons);
+        return offset;
+    }
+
+    template<class S>
+    void push_singleton_into_buffer(buffer& buf, const GridWorld::registry& reg)
+    {
+        push_into_buffer(buf, reg.ctx<S>());
+    }
+
+    template<class S>
+    size_t copy_singleton_from_buffer(const char* buf, const char* buf_end, GridWorld::registry& reg)
+    {
+        return copy_from_buffer(buf, buf_end, reg.ctx<S>());
+    }
+
+    template<class C>
+    void push_components_into_buffer(buffer& buf, const GridWorld::registry& reg)
+    {
+        size_t count = reg.size<C>();
+        push_into_buffer(buf, count);
+        push_into_buffer(buf, reg.data<C>(), count);
+        push_into_buffer(buf, reg.raw<C>(), count);
+    }
+
+    template<class C>
+    size_t copy_components_from_buffer(const char* buf, const char* buf_end, GridWorld::registry& reg)
+    {
+        size_t offset = 0;
+        size_t count = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, count);
+
+        for (int i = 0; i < count; ++i)
+        {
+            EntityId eid;
+            offset += copy_from_buffer(buf + offset, buf_end, eid);
+            reg.assign<C>(eid);
+        }
+
+        offset += copy_from_buffer(buf + offset, buf_end, reg.raw<C>(), count);
+
+        return offset;
+    }
+
+    template<class T>
+    void push_tags_into_buffer(buffer& buf, const GridWorld::registry& reg)
+    {
+        push_array_into_buffer(buf, reg.data<T>(), reg.size<T>());
+    }
+
+    template<class T>
+    size_t copy_tags_from_buffer(const char* buf, const char* buf_end, GridWorld::registry& reg)
+    {
+        size_t offset = 0;
+        size_t count = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, count);
+
+        for (int i = 0; i < count; ++i)
+        {
+            EntityId eid;
+            offset += copy_from_buffer(buf + offset, buf_end, eid);
+            reg.assign<T>(eid);
+        }
+
+        return offset;
+    }
+
+    template<class T>
+    void push_into_buffer(buffer& buf, const T& obj)
+    {
+        static_assert(std::is_trivially_copyable_v<T>, "Non trivially copyable type. " __FUNCSIG__);
+        push_into_buffer(buf, reinterpret_cast<const char*>(&obj), sizeof(T));
+    }
+
+    template<class T>
+    size_t copy_from_buffer(const char* buf, const char* buf_end, T& obj)
+    {
+        static_assert(std::is_trivially_copyable_v<T>, "Non trivially copyable type. " __FUNCSIG__);
+        return copy_from_buffer(buf, buf_end, reinterpret_cast<char*>(&obj), sizeof(T));
+    }
+
+    template<class T>
+    void push_into_buffer(buffer& buf, const T* obj_array, size_t count)
+    {
+        if constexpr (std::is_trivially_copyable_v<T>)
+        {
+            push_into_buffer(buf, reinterpret_cast<const char*>(obj_array), count * sizeof(T));
+        }
+        else
+        {
+            for (int i = 0; i < count; ++i)
+            {
+                push_into_buffer(buf, obj_array[i]);
+            }
+        }
+    }
+
+    template<class T>
+    size_t copy_from_buffer(const char* buf, const char* buf_end, T* obj_array, size_t count)
+    {
+        if constexpr (std::is_trivially_copyable_v<T>)
+        {
+            return copy_from_buffer(buf, buf_end, reinterpret_cast<char*>(obj_array), count * sizeof(T));
+        }
+        else
+        {
+            size_t offset = 0;
+            for (int i = 0; i < count; ++i)
+            {
+                offset += copy_from_buffer(buf + offset, buf_end, obj_array[i]);
+            }
+            return offset;
+        }
+    }
+
+    template<class T>
+    void push_into_buffer(buffer& buf, const std::vector<T>& vec)
+    {
+        push_array_into_buffer(buf, vec.data(), vec.size());
+    }
+
+    template<class T>
+    size_t copy_from_buffer(const char* buf, const char* buf_end, std::vector<T>& vec)
+    {
+        size_t offset = 0;
+        size_t count = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, count);
+        vec = std::vector<T>(count);
+        offset += copy_from_buffer(buf + offset, buf_end, vec.data(), count);
+        return offset;
+    }
+
+    template<class K, class V>
+    void push_into_buffer(buffer& buf, const std::map<K, V>& map)
+    {
+        push_into_buffer(buf, map.size());
+        for (auto const& [key, value] : map)
+        {
+            push_into_buffer(buf, key);
+            push_into_buffer(buf, value);
+        }
+    }
+
+    template<class K, class V>
+    size_t copy_from_buffer(const char* buf, const char* buf_end, std::map<K, V>& map)
+    {
+        size_t offset = 0;
+        size_t count = 0;
+        offset += copy_from_buffer(buf + offset, buf_end, count);
+        map.clear();
+        for (int i = 0; i < count; ++i)
+        {
+            K key;
+            offset += copy_from_buffer(buf + offset, buf_end, key);
+            offset += copy_from_buffer(buf + offset, buf_end, map[key]);
+        }
+        return offset;
+    }
+
+    template<class T>
+    void push_array_into_buffer(buffer& buf, const T* obj_array, size_t count)
+    {
+        push_into_buffer(buf, count);
+        push_into_buffer(buf, obj_array, count);
+    }
+}
+
 GridWorld::registry create_empty_simulation_registry()
 {
     using namespace GridWorld::Component;
@@ -1265,6 +1696,83 @@ void GridWorld::Simulation::set_event_callback(event_callback_function callback)
     event_callback = callback;
 }
 
+std::vector<char> GridWorld::Simulation::get_state_binary() const
+{
+    using namespace GridWorld::Component;
+    using namespace GridWorld::Binary;
+
+    buffer buf;
+    buf.reserve(1024 * 30);
+
+    push_array_into_buffer(buf, reg.data(), reg.size());
+
+    push_singleton_into_buffer<SSimulationConfig>(buf, reg);
+    push_singleton_into_buffer<STickCounter>(buf, reg);
+    push_singleton_into_buffer<SWorld>(buf, reg);
+    push_singleton_into_buffer<SEventsLog>(buf, reg);
+
+    push_components_into_buffer<Position>(buf, reg);
+    push_components_into_buffer<Moveable>(buf, reg);
+    push_components_into_buffer<Name>(buf, reg);
+    push_components_into_buffer<RNG>(buf, reg);
+    push_components_into_buffer<SimpleBrain>(buf, reg);
+    push_components_into_buffer<SimpleBrainSeer>(buf, reg);
+    push_components_into_buffer<SimpleBrainMover>(buf, reg);
+    push_components_into_buffer<Predation>(buf, reg);
+    push_components_into_buffer<Scorable>(buf, reg);
+
+    push_tags_into_buffer<RandomMover>(buf, reg);
+
+    return buf;
+}
+
+void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
+{
+    //using namespace GridWorld::JSON;
+    //using namespace rapidjson;
+    using namespace GridWorld::Binary;
+
+    if (is_running())
+    {
+        throw std::exception("set_state_binary cannot be used while simulation is running.");
+    }
+
+    const char* bin_end = bin + size;
+    size_t offset = 0;
+
+    registry tmp = create_empty_simulation_registry();
+
+    {
+        std::vector<EntityId> eids;
+        offset += copy_from_buffer(bin + offset, bin_end, eids);
+
+        tmp.assign(eids.begin(), eids.end());
+    }
+
+    {
+        offset += copy_singleton_from_buffer<SSimulationConfig>(bin + offset, bin_end, tmp);
+        offset += copy_singleton_from_buffer<STickCounter>(bin + offset, bin_end, tmp);
+        offset += copy_singleton_from_buffer<SWorld>(bin + offset, bin_end, tmp);
+        offset += copy_singleton_from_buffer<SEventsLog>(bin + offset, bin_end, tmp);
+    }
+
+    {
+        offset += copy_components_from_buffer<Position>(bin + offset, bin_end, tmp);
+        offset += copy_components_from_buffer<Moveable>(bin + offset, bin_end, tmp);
+        offset += copy_components_from_buffer<Name>(bin + offset, bin_end, tmp);
+        offset += copy_components_from_buffer<RNG>(bin + offset, bin_end, tmp);
+        offset += copy_components_from_buffer<SimpleBrain>(bin + offset, bin_end, tmp);
+        offset += copy_components_from_buffer<SimpleBrainSeer>(bin + offset, bin_end, tmp);
+        offset += copy_components_from_buffer<SimpleBrainMover>(bin + offset, bin_end, tmp);
+        offset += copy_components_from_buffer<Predation>(bin + offset, bin_end, tmp);
+        offset += copy_components_from_buffer<Scorable>(bin + offset, bin_end, tmp);
+
+        offset += copy_tags_from_buffer<RandomMover>(bin + offset, bin_end, tmp);
+    }
+
+    reg = std::move(tmp);
+}
+
 void update_tick(GridWorld::registry& reg)
 {
     using namespace GridWorld::Systems;
@@ -1322,7 +1830,6 @@ void GridWorld::Simulation::simulation_loop()
 
             StringBuffer buf;
             Writer<StringBuffer> writer(buf);
-
             json_write(events_last_tick, writer);
 
             simulation_lock.unlock();

@@ -7,6 +7,7 @@ using namespace GridWorld;
 
 using cstr_result_callback = void(const char*);
 using uint64_result_callback = void(uint64_t);
+using buffer_result_callback = void(const char*, size_t);
 
 template<typename Vt, typename C>
 void vector_to_callback(const std::vector<Vt>&& vector, C callback)
@@ -147,4 +148,15 @@ API_EXPORT void get_singleton_names(void* ptr, cstr_result_callback callback)
 API_EXPORT void set_event_callback(void* ptr, cstr_result_callback callback)
 {
     sim(ptr)->set_event_callback(callback);
+}
+
+API_EXPORT void get_state_binary(void* ptr, buffer_result_callback callback)
+{
+    std::vector<char> bin = sim(ptr)->get_state_binary();
+    callback(bin.data(), bin.size());
+}
+
+API_EXPORT void set_state_binary(void* ptr, const char* bin, uint64_t size)
+{
+    sim(ptr)->set_state_binary(bin, size);
 }

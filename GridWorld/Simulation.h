@@ -56,6 +56,10 @@ namespace GridWorld
         std::vector<std::string> get_singleton_names() const;
 
         void set_event_callback(event_callback_function callback);
+
+        std::vector<char> get_state_binary() const;
+
+        void set_state_binary(const char* binary, size_t size);
     private:
         registry reg;
 
