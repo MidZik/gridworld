@@ -648,6 +648,7 @@ std::string GridWorld::Simulation::get_state_json() const
     WaitGuard wait_guard(*this);
 
     StringBuffer buf;
+    buf.Reserve(1024 * 100);
     Writer<StringBuffer> writer(buf);
 
     writer.StartObject();
