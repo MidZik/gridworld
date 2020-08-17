@@ -1,0 +1,5 @@
+{
+    "name": "gridworld-example",
+    "binary": "x64/Release/gridworld.dll",
+    "archive_method": "git-archive-working"
+}
