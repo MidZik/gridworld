@@ -15,7 +15,7 @@ namespace GridWorld
     class Simulation
     {
     public:
-        using event_callback_function = void(const char*);
+        using event_callback_function = void(const char*, const char*);
 
         Simulation();
 

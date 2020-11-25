@@ -1830,10 +1830,16 @@ void GridWorld::Simulation::simulation_loop()
 
             StringBuffer buf;
             Writer<StringBuffer> writer(buf);
-            json_write(events_last_tick, writer);
 
             simulation_lock.unlock();
-            event_callback(buf.GetString());
+            for (const Events::Event& e : events_last_tick)
+            {
+                json_write(e.data, writer);
+                event_callback(e.name.c_str(), buf.GetString());
+                buf.Clear();
+            }
+
+            event_callback(nullptr, nullptr); // signals that all events this tick have been sent to the callback
             simulation_lock.lock();
 
 #ifdef MEASURE_PERF_SIMULATION_LOOP
@@ -1843,7 +1849,7 @@ void GridWorld::Simulation::simulation_loop()
             duration<double, std::milli> update_dur = last_update_end_time - last_event_time;
             duration<double, std::milli> callback_dur = last_callback_end_time - last_update_end_time;
 
-            std::printf("Total time: %.2f, Update time: %.2f, Callback time: %.2f, Callback Ratio: %.2f%%\r\n",
+            std::fprintf(stderr, "Total time: %.2f, Update time: %.2f, Callback time: %.2f, Callback Ratio: %.2f%%\r\n",
                         total_dur.count(), update_dur.count(), callback_dur.count(),
                         (100 * callback_dur.count() / total_dur.count()));
             std::fflush(stdout);
