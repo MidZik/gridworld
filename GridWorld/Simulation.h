@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <thread>
-#include <mutex>
+#include <shared_mutex>
 #include <condition_variable>
 #include <memory>
 #include <functional>
@@ -63,25 +63,16 @@ namespace GridWorld
         void set_state_binary(const char* binary, size_t size);
 
         void get_events_last_tick(event_callback_function callback);
-
     private:
         registry reg;
 
-        enum class SimulationState : uint32_t
-        {
-            running,
-            stopped, // thread halts as soon as it is able to
-            waiting // thread waits as soon as it is able to
-        };
-        mutable SimulationState requested_state;
+        mutable bool stop_requested;
 
-        mutable std::recursive_mutex simulation_mutex;
+        mutable std::shared_mutex simulation_mutex;
         mutable std::condition_variable_any simulation_waiter;
         std::thread simulation_thread;
 
         tick_event_callback_function* tick_event_callback;
-
-        class WaitGuard;
 
 
         void simulation_loop();
