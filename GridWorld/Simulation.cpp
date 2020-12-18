@@ -1682,6 +1682,7 @@ std::vector<std::string> GridWorld::Simulation::get_singleton_names() const
 
 void GridWorld::Simulation::set_tick_event_callback(tick_event_callback_function callback)
 {
+    unique_lock ul(simulation_mutex);
     tick_event_callback = callback;
 }
 
@@ -1723,12 +1724,12 @@ void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
     //using namespace rapidjson;
     using namespace GridWorld::Binary;
 
+    unique_lock ul(simulation_mutex);
+
     if (is_running())
     {
         throw std::exception("set_state_binary cannot be used while simulation is running.");
     }
-
-    unique_lock ul(simulation_mutex);
 
     const char* bin_end = bin + size;
     size_t offset = 0;
