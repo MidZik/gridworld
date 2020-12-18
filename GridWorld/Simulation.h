@@ -16,6 +16,7 @@ namespace GridWorld
     {
     public:
         using event_callback_function = void(const char*, const char*);
+        using tick_event_callback_function = void(uint64_t, uint64_t);
 
         Simulation();
 
@@ -55,11 +56,14 @@ namespace GridWorld
 
         std::vector<std::string> get_singleton_names() const;
 
-        void set_event_callback(event_callback_function callback);
+        void set_tick_event_callback(tick_event_callback_function callback);
 
         std::vector<char> get_state_binary() const;
 
         void set_state_binary(const char* binary, size_t size);
+
+        void get_events_last_tick(event_callback_function callback);
+
     private:
         registry reg;
 
@@ -75,7 +79,7 @@ namespace GridWorld
         mutable std::condition_variable_any simulation_waiter;
         std::thread simulation_thread;
 
-        event_callback_function* event_callback;
+        tick_event_callback_function* tick_event_callback;
 
         class WaitGuard;
 

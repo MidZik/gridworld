@@ -8,10 +8,6 @@
 #include <condition_variable>
 #include <unordered_map>
 
-#ifdef MEASURE_PERF_SIMULATION_LOOP
-#include <chrono>
-#endif
-
 #include "Simulation.h"
 #include "components.h"
 #include "Systems.h"
@@ -1691,9 +1687,9 @@ std::vector<std::string> GridWorld::Simulation::get_singleton_names() const
     };
 }
 
-void GridWorld::Simulation::set_event_callback(event_callback_function callback)
+void GridWorld::Simulation::set_tick_event_callback(tick_event_callback_function callback)
 {
-    event_callback = callback;
+    tick_event_callback = callback;
 }
 
 std::vector<char> GridWorld::Simulation::get_state_binary() const
@@ -1773,6 +1769,24 @@ void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
     reg = std::move(tmp);
 }
 
+void GridWorld::Simulation::get_events_last_tick(event_callback_function callback)
+{
+    using namespace GridWorld::JSON;
+    using namespace rapidjson;
+
+    StringBuffer buf;
+    Writer<StringBuffer> writer(buf);
+
+    WaitGuard wait_guard(*this);
+
+    for (const Events::Event& e : reg.ctx<Component::SEventsLog>().events_last_tick)
+    {
+        json_write(e.data, writer);
+        callback(e.name.c_str(), buf.GetString());
+        buf.Clear();
+    }
+}
+
 void update_tick(GridWorld::registry& reg)
 {
     using namespace GridWorld::Systems;
@@ -1790,12 +1804,6 @@ void update_tick(GridWorld::registry& reg)
 
 void GridWorld::Simulation::simulation_loop()
 {
-#ifdef MEASURE_PERF_SIMULATION_LOOP
-    using namespace std::chrono;
-
-    high_resolution_clock::time_point last_event_time = high_resolution_clock::now();
-#endif // MEASURE_PERF_SIMULATION_LOOP
-
     unique_lock simulation_lock(simulation_mutex);
     while (true)
     {
@@ -1817,45 +1825,18 @@ void GridWorld::Simulation::simulation_loop()
 
         update_tick(reg);
 
-#ifdef MEASURE_PERF_SIMULATION_LOOP
-        high_resolution_clock::time_point last_update_end_time = high_resolution_clock::now();
-#endif
-
         // Publish events that occured last tick
         const auto& events_last_tick = reg.ctx<Component::SEventsLog>().events_last_tick;
-        if (events_last_tick.size() > 0 && event_callback != nullptr)
-        {
-            using namespace GridWorld::JSON;
-            using namespace rapidjson;
 
-            StringBuffer buf;
-            Writer<StringBuffer> writer(buf);
+        if (tick_event_callback != nullptr)
+        {
+            uint64_t flags =
+                // BIT 0: 1 if events have occured last tick, 0 otherwise
+                1 * (events_last_tick.size() > 0);
 
             simulation_lock.unlock();
-            for (const Events::Event& e : events_last_tick)
-            {
-                json_write(e.data, writer);
-                event_callback(e.name.c_str(), buf.GetString());
-                buf.Clear();
-            }
-
-            event_callback(nullptr, nullptr); // signals that all events this tick have been sent to the callback
+            tick_event_callback(get_tick(), flags);
             simulation_lock.lock();
-
-#ifdef MEASURE_PERF_SIMULATION_LOOP
-            high_resolution_clock::time_point last_callback_end_time = high_resolution_clock::now();
-
-            duration<double, std::milli> total_dur = last_callback_end_time - last_event_time;
-            duration<double, std::milli> update_dur = last_update_end_time - last_event_time;
-            duration<double, std::milli> callback_dur = last_callback_end_time - last_update_end_time;
-
-            std::fprintf(stderr, "Total time: %.2f, Update time: %.2f, Callback time: %.2f, Callback Ratio: %.2f%%\r\n",
-                        total_dur.count(), update_dur.count(), callback_dur.count(),
-                        (100 * callback_dur.count() / total_dur.count()));
-            std::fflush(stdout);
-
-            last_event_time = high_resolution_clock::now();
-#endif // MEASURE_PERF_SIMULATION_LOOP
         }
     }
 }

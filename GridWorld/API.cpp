@@ -145,9 +145,9 @@ API_EXPORT void get_singleton_names(void* ptr, cstr_result_callback callback)
     vector_to_callback(sim(ptr)->get_singleton_names(), callback);
 }
 
-API_EXPORT void set_event_callback(void* ptr, Simulation::event_callback_function callback)
+API_EXPORT void set_tick_event_callback(void* ptr, Simulation::tick_event_callback_function callback)
 {
-    sim(ptr)->set_event_callback(callback);
+    sim(ptr)->set_tick_event_callback(callback);
 }
 
 API_EXPORT void get_state_binary(void* ptr, buffer_result_callback callback)
@@ -159,4 +159,9 @@ API_EXPORT void get_state_binary(void* ptr, buffer_result_callback callback)
 API_EXPORT void set_state_binary(void* ptr, const char* bin, uint64_t size)
 {
     sim(ptr)->set_state_binary(bin, size);
+}
+
+API_EXPORT void get_events_last_tick(void* ptr, Simulation::event_callback_function callback)
+{
+    sim(ptr)->get_events_last_tick(callback);
 }
