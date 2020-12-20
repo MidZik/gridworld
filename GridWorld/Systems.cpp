@@ -748,6 +748,8 @@ void GridWorld::Systems::evolution(registry & reg)
 
         evo_data_map.emplace("new_entities", std::move(new_entities));
 
+        evo_data_map.emplace("evo_period_length", (int)sim_config.evo_ticks_per_evolution);
+
         event_log.log_event(std::move(evo_event));
     }
 }
