@@ -69,7 +69,6 @@ namespace GridWorld
         mutable bool stop_requested;
 
         mutable std::shared_mutex simulation_mutex;
-        mutable std::condition_variable_any simulation_waiter;
         std::thread simulation_thread;
 
         tick_event_callback_function* tick_event_callback;
