@@ -17,6 +17,7 @@ namespace GridWorld
     public:
         using event_callback_function = void(const char*, const char*);
         using tick_event_callback_function = void(uint64_t, uint64_t);
+        using command_result_callback_function = void(const char*, const char*);
 
         Simulation();
 
@@ -63,6 +64,8 @@ namespace GridWorld
         void set_state_binary(const char* binary, size_t size);
 
         void get_events_last_tick(event_callback_function callback);
+
+        void run_command(int64_t argc, const char* argv[], command_result_callback_function callback);
     private:
         registry reg;
 

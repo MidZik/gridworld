@@ -165,3 +165,8 @@ API_EXPORT void get_events_last_tick(void* ptr, Simulation::event_callback_funct
 {
     sim(ptr)->get_events_last_tick(callback);
 }
+
+API_EXPORT void run_command(void* ptr, int64_t argc, const char* argv[], Simulation::command_result_callback_function callback)
+{
+    sim(ptr)->run_command(argc, argv, callback);
+}

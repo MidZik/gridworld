@@ -7,6 +7,8 @@
 #include <rapidjson/schema.h>
 #include <condition_variable>
 #include <unordered_map>
+#include <charconv>
+#include <random>
 
 #include "Simulation.h"
 #include "components.h"
@@ -1783,6 +1785,77 @@ void GridWorld::Simulation::get_events_last_tick(event_callback_function callbac
         callback(e.name.c_str(), buf.GetString());
         buf.Clear();
     }
+}
+
+void GridWorld::Simulation::run_command(int64_t argc, const char* argv[], command_result_callback_function callback)
+{
+    using namespace GridWorld::Component;
+
+    try
+    {
+        if (argc <= 0)
+        {
+            throw std::exception("No command specified.");
+        }
+
+        std::vector<std::string_view> args;
+        args.reserve(argc);
+
+        for (int i = 0; i < argc; ++i)
+        {
+            args.push_back(std::string_view(argv[i]));
+        }
+
+        auto command = args[0];
+
+        if (command == "randomize")
+        {
+            unique_lock ul(simulation_mutex);
+
+            if (is_running())
+            {
+                throw std::exception("Command 'randomize' cannot be used while simulation is running.");
+            }
+
+            if (argc == 1)
+            {
+                // no other args, randomize all RNG components
+                auto rng_view = reg.view<RNG>();
+                for (EntityId eid : rng_view)
+                {
+                    RNG& rng = rng_view.get(eid);
+                    rng.seed(pcg_extras::seed_seq_from<std::random_device>());
+                }
+            }
+            else if (argc == 2)
+            {
+                auto eid_view = args[1];
+                uint64_t raw_eid = 0;
+                auto [p, ec] = std::from_chars(eid_view.data(), eid_view.data() + eid_view.size(), raw_eid);
+                EntityId eid = (EntityId)raw_eid;
+                if (ec != std::errc())
+                {
+                    throw std::exception("Provided EID does not have a valid format.");
+                }
+
+                RNG& rng = reg.get<RNG>(eid);
+                rng.seed(pcg_extras::seed_seq_from<std::random_device>());
+            }
+            else
+            {
+                throw std::exception("Command 'randomize' can only accept up to 1 arguments.");
+            }
+        }
+        else
+        {
+            throw std::exception("Unknown sim command provided.");
+        }
+    }
+    catch (const std::exception& e)
+    {
+        callback(e.what(), nullptr);
+    }
+
 }
 
 void update_tick(GridWorld::registry& reg)
