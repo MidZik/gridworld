@@ -66,9 +66,12 @@ namespace GridWorld
         void get_events_last_tick(event_callback_function callback);
 
         void run_command(int64_t argc, const char* argv[], command_result_callback_function callback);
+
+        void request_stop();
     private:
         registry reg;
 
+        mutable std::mutex control_mutex;
         mutable bool stop_requested;
 
         mutable std::shared_mutex simulation_mutex;

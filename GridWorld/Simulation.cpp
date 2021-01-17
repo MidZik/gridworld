@@ -1317,6 +1317,7 @@ std::vector<uint64_t> GridWorld::Simulation::get_all_entities() const
 
 void GridWorld::Simulation::start_simulation()
 {
+    std::lock_guard control_guard(control_mutex);
     if (!is_running())
     {
         // Since the state may have been changed externally while the simulation
@@ -1330,6 +1331,7 @@ void GridWorld::Simulation::start_simulation()
 
 void GridWorld::Simulation::stop_simulation()
 {
+    std::lock_guard control_guard(control_mutex);
     if (is_running())
     {
         stop_requested = true;
@@ -1858,6 +1860,11 @@ void GridWorld::Simulation::run_command(int64_t argc, const char* argv[], comman
 
 }
 
+void GridWorld::Simulation::request_stop()
+{
+    stop_requested = true;
+}
+
 void update_tick(GridWorld::registry& reg)
 {
     using namespace GridWorld::Systems;
@@ -1875,13 +1882,8 @@ void update_tick(GridWorld::registry& reg)
 
 void GridWorld::Simulation::simulation_loop()
 {
-    while (true)
+    while (!stop_requested)
     {
-        if (stop_requested)
-        {
-            return;
-        }
-
         // For the update, aquire an exclusive lock to prevent reads during the sim update.
         // However, after the write is done, we do not need to (and should not) keep a
         // shared lock afterwards, because the tick event handler might need to make its

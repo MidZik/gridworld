@@ -170,3 +170,8 @@ API_EXPORT void run_command(void* ptr, int64_t argc, const char* argv[], Simulat
 {
     sim(ptr)->run_command(argc, argv, callback);
 }
+
+API_EXPORT void request_stop(void* ptr)
+{
+    sim(ptr)->request_stop();
+}
