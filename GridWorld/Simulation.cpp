@@ -1043,7 +1043,7 @@ uint64_t GridWorld::Simulation::get_tick() const
     return reg.ctx<Component::STickCounter>().tick;
 }
 
-std::string GridWorld::Simulation::get_state_json() const
+std::tuple<std::string, uint64_t> GridWorld::Simulation::get_state_json() const
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
@@ -1124,7 +1124,7 @@ std::string GridWorld::Simulation::get_state_json() const
 
     writer.EndObject(); // root
 
-    return buf.GetString();
+    return std::make_tuple(buf.GetString(), get_tick());
 }
 
 const char * state_schema = R"xx(
@@ -1297,7 +1297,7 @@ void GridWorld::Simulation::destroy_entity(uint64_t eid)
     reg.destroy(EntityId{ eid });
 }
 
-std::vector<uint64_t> GridWorld::Simulation::get_all_entities() const
+std::tuple<std::vector<uint64_t>, uint64_t> GridWorld::Simulation::get_all_entities() const
 {
     shared_lock sl(simulation_mutex);
 
@@ -1312,7 +1312,7 @@ std::vector<uint64_t> GridWorld::Simulation::get_all_entities() const
         }
     }
 
-    return result;
+    return std::make_tuple(result, get_tick());
 }
 
 void GridWorld::Simulation::start_simulation()
@@ -1404,7 +1404,7 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     }
 }
 
-std::string GridWorld::Simulation::get_component_json(uint64_t eid_int, std::string component_name) const
+std::tuple<std::string, uint64_t> GridWorld::Simulation::get_component_json(uint64_t eid_int, std::string component_name) const
 {
     using namespace Component;
     using namespace Reflect;
@@ -1462,7 +1462,7 @@ std::string GridWorld::Simulation::get_component_json(uint64_t eid_int, std::str
         throw std::exception(("Unknown component type passed to get_component_json: " + component_name).c_str());
     }
 
-    return buf.GetString();
+    return std::make_tuple(buf.GetString(), get_tick());
 }
 
 void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string component_name)
@@ -1598,7 +1598,7 @@ std::vector<std::string> GridWorld::Simulation::get_component_names() const
     };
 }
 
-std::vector<std::string> GridWorld::Simulation::get_entity_component_names(uint64_t eid) const
+std::tuple<std::vector<std::string>, uint64_t> GridWorld::Simulation::get_entity_component_names(uint64_t eid) const
 {
     using namespace Reflect;
     std::vector<std::string> result;
@@ -1609,10 +1609,10 @@ std::vector<std::string> GridWorld::Simulation::get_entity_component_names(uint6
     {
         result.push_back(id_to_com_name(com_id));
     });
-    return result;
+    return std::make_tuple(result, get_tick());
 }
 
-std::string GridWorld::Simulation::get_singleton_json(std::string singleton_name) const
+std::tuple<std::string, uint64_t> GridWorld::Simulation::get_singleton_json(std::string singleton_name) const
 {
     using namespace Component;
     using namespace Reflect;
@@ -1641,7 +1641,7 @@ std::string GridWorld::Simulation::get_singleton_json(std::string singleton_name
         throw std::exception(("Unknown component type passed to get_singleton_json: " + singleton_name).c_str());
     }
 
-    return buf.GetString();
+    return std::make_tuple(buf.GetString(), get_tick());
 }
 
 void GridWorld::Simulation::set_singleton_json(std::string singleton_name, std::string singleton_json)
@@ -1690,7 +1690,7 @@ void GridWorld::Simulation::set_tick_event_callback(tick_event_callback_function
     tick_event_callback = callback;
 }
 
-std::vector<char> GridWorld::Simulation::get_state_binary() const
+std::tuple<std::vector<char>, uint64_t> GridWorld::Simulation::get_state_binary() const
 {
     using namespace GridWorld::Component;
     using namespace GridWorld::Binary;
@@ -1719,7 +1719,7 @@ std::vector<char> GridWorld::Simulation::get_state_binary() const
 
     push_tags_into_buffer<RandomMover>(buf, reg);
 
-    return buf;
+    return std::make_tuple(buf, get_tick());
 }
 
 void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
@@ -1771,7 +1771,7 @@ void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
     reg = std::move(tmp);
 }
 
-void GridWorld::Simulation::get_events_last_tick(event_callback_function callback)
+uint64_t GridWorld::Simulation::get_events_last_tick(event_callback_function callback)
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
@@ -1787,6 +1787,8 @@ void GridWorld::Simulation::get_events_last_tick(event_callback_function callbac
         callback(e.name.c_str(), buf.GetString());
         buf.Clear();
     }
+
+    return get_tick();
 }
 
 void GridWorld::Simulation::run_command(int64_t argc, const char* argv[], command_result_callback_function callback)
