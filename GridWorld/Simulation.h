@@ -7,6 +7,8 @@
 #include <condition_variable>
 #include <memory>
 #include <functional>
+#include <atomic>
+#include <condition_variable>
 
 #include "Registry.h"
 
@@ -74,6 +76,8 @@ namespace GridWorld
         mutable std::mutex control_mutex;
         mutable bool stop_requested;
 
+        mutable std::atomic<uint32_t> pause_requests;
+        mutable std::condition_variable_any no_pauses_requested;
         mutable std::shared_mutex simulation_mutex;
         std::thread simulation_thread;
 

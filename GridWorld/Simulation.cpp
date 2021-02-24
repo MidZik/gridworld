@@ -18,6 +18,34 @@
 using unique_lock = std::unique_lock<std::shared_mutex>;
 using shared_lock = std::shared_lock<std::shared_mutex>;
 
+class shared_pause_lock
+{
+public:
+    shared_pause_lock(std::atomic<uint32_t>& pause_requests,
+        std::condition_variable_any& no_pauses_requested,
+        std::shared_mutex& shared_mutex) :
+        pause_requests(pause_requests),
+        no_pauses_requested(no_pauses_requested),
+        shared_mutex(shared_mutex)
+    {
+        ++pause_requests;
+        shared_mutex.lock_shared();
+    };
+
+    ~shared_pause_lock()
+    {
+        shared_mutex.unlock_shared();
+        if (--pause_requests == 0)
+        {
+            no_pauses_requested.notify_one();
+        }
+    }
+private:
+    std::atomic<uint32_t>& pause_requests;
+    std::condition_variable_any& no_pauses_requested;
+    std::shared_mutex& shared_mutex;
+};
+
 namespace Reflect
 {
     using namespace GridWorld::Component;
@@ -1048,7 +1076,8 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_state_json() const
     using namespace GridWorld::JSON;
     using namespace rapidjson;
 
-    shared_lock sl(simulation_mutex);
+    //shared_lock sl(simulation_mutex);
+    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     StringBuffer buf;
     buf.Reserve(1024 * 100);
@@ -1299,7 +1328,8 @@ void GridWorld::Simulation::destroy_entity(uint64_t eid)
 
 std::tuple<std::vector<uint64_t>, uint64_t> GridWorld::Simulation::get_all_entities() const
 {
-    shared_lock sl(simulation_mutex);
+    //shared_lock sl(simulation_mutex);
+    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     std::vector<uint64_t> result;
     result.reserve(reg.size());
@@ -1415,7 +1445,8 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_component_json(uint
     StringBuffer buf;
     Writer<StringBuffer> writer(buf);
 
-    shared_lock sl(simulation_mutex);
+    //shared_lock sl(simulation_mutex);
+    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     if (component_name == com_name<Position>())
     {
@@ -1603,7 +1634,8 @@ std::tuple<std::vector<std::string>, uint64_t> GridWorld::Simulation::get_entity
     using namespace Reflect;
     std::vector<std::string> result;
 
-    shared_lock sl(simulation_mutex);
+    //shared_lock sl(simulation_mutex);
+    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     reg.visit(EntityId(eid), [&result](ENTT_ID_TYPE com_id)
     {
@@ -1622,7 +1654,8 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_singleton_json(std:
     StringBuffer buf;
     Writer<StringBuffer> writer(buf);
 
-    shared_lock sl(simulation_mutex);
+    //shared_lock sl(simulation_mutex);
+    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     if (singleton_name == com_name<SWorld>())
     {
@@ -1698,7 +1731,8 @@ std::tuple<std::vector<char>, uint64_t> GridWorld::Simulation::get_state_binary(
     buffer buf;
     buf.reserve(1024 * 30);
 
-    shared_lock sl(simulation_mutex);
+    //shared_lock sl(simulation_mutex);
+    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     push_array_into_buffer(buf, reg.data(), reg.size());
 
@@ -1779,7 +1813,8 @@ uint64_t GridWorld::Simulation::get_events_last_tick(event_callback_function cal
     StringBuffer buf;
     Writer<StringBuffer> writer(buf);
 
-    shared_lock sl(simulation_mutex);
+    //shared_lock sl(simulation_mutex);
+    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     for (const Events::Event& e : reg.ctx<Component::SEventsLog>().events_last_tick)
     {
@@ -1884,6 +1919,7 @@ void update_tick(GridWorld::registry& reg)
 
 void GridWorld::Simulation::simulation_loop()
 {
+    unique_lock ul(simulation_mutex);
     while (!stop_requested)
     {
         // For the update, aquire an exclusive lock to prevent reads during the sim update.
@@ -1897,19 +1933,23 @@ void GridWorld::Simulation::simulation_loop()
         // a thread is inside this method, no writes will succeed, and we have a de-facto
         // read safe state inside this method without a shared lock.
 
+        while (pause_requests != 0)
         {
-            unique_lock ul(simulation_mutex);
-            update_tick(reg);
+            no_pauses_requested.wait(simulation_mutex);
         }
+
+        update_tick(reg);
 
         if (tick_event_callback != nullptr)
         {
+            ul.unlock();
             const auto& events_last_tick = reg.ctx<Component::SEventsLog>().events_last_tick;
             uint64_t flags =
                 // BIT 0: 1 if events have occured last tick, 0 otherwise
                 1 * (events_last_tick.size() > 0);
 
             tick_event_callback(get_tick(), flags);
+            ul.lock();
         }
     }
 }
