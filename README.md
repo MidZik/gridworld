@@ -13,3 +13,4 @@ performance based on the tweaks.
 ## Dependencies
 + Eigen
 + EnTT 3.0
++ RapidJSON
