@@ -1,9 +1,15 @@
 # GridWorld
-GridWorld is a high-performance 2D world simulator created to study neural network behavior and evolution in a deterministic and controlled environment. Its functionality is currently exposed through python bindings as a python module.
+GridWorld is an example simulation created for
+[PyGridWorld](https://github.com/MidZik/pygridworld).
 
-GridWorld defines the components that make up the world, and the systems that update the world on every update tick. Modifying and analysing the simulation's state outside of the defined systems (such as to evolve the neural networks) is left to its clients (namely, [PyGridWorld](https://github.com/MidZik/pygridworld), its sibling project).
+It simulates a simple 2D "grid world", where AI agents can move around
+to avoid dangerous obstacles. It features a small and simple neural
+network system that evolves over time, by duplicating and mutating
+agents that perform the best in a given time period. To this end, it
+provides some tweakable parameters in its state, so that a user can
+modify how the simulation behaves, and examine differences in
+performance based on the tweaks.
 
 ## Dependencies
-+ pybind11
 + Eigen
 + EnTT 3.0
