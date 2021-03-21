@@ -1056,6 +1056,7 @@ GridWorld::registry create_empty_simulation_registry()
     reg.ctx_or_set<STickCounter>();
     reg.ctx_or_set<SWorld>();
     reg.ctx_or_set<SEventsLog>();
+    reg.ctx_or_set<RNG>();
 
     return reg;
 }
@@ -1110,6 +1111,9 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_state_json() const
 
         writer.Key("SEventsLog");
         json_write(reg.ctx<SEventsLog>(), writer);
+
+        writer.Key("RNG");
+        json_write(reg.ctx<RNG>(), writer);
 
         writer.EndObject();
     } // singletons
@@ -1262,6 +1266,11 @@ void GridWorld::Simulation::set_state_json(std::string json)
         json_read(tmp.ctx<SWorld>(), singletons["SWorld"]);
 
         json_read(tmp.ctx<SEventsLog>(), singletons["SEventsLog"]);
+
+        if (singletons.HasMember("RNG"))
+        {
+            json_read(tmp.ctx<RNG>(), singletons["RNG"]);
+        }
     }
 
     {
@@ -1669,6 +1678,10 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_singleton_json(std:
     {
         json_write(reg.ctx<SSimulationConfig>(), writer);
     }
+    else if (singleton_name == com_name<RNG>())
+    {
+        json_write(reg.ctx<RNG>(), writer);
+    }
     else
     {
         throw std::exception(("Unknown component type passed to get_singleton_json: " + singleton_name).c_str());
@@ -1701,6 +1714,10 @@ void GridWorld::Simulation::set_singleton_json(std::string singleton_name, std::
     {
         JSON::json_read(reg.ctx<SSimulationConfig>(), singleton_json);
     }
+    else if (singleton_name == com_name<RNG>())
+    {
+        JSON::json_read(reg.ctx<RNG>(), singleton_json);
+    }
     else
     {
         throw std::exception(("Unknown component type passed to set_singleton_json: " + singleton_name).c_str());
@@ -1713,7 +1730,8 @@ std::vector<std::string> GridWorld::Simulation::get_singleton_names() const
     return std::vector<std::string> {
         com_name<SSimulationConfig>(),
         com_name<SWorld>(),
-        com_name<SEventsLog>()
+        com_name<SEventsLog>(),
+        com_name<RNG>()
     };
 }
 
@@ -1740,6 +1758,7 @@ std::tuple<std::vector<char>, uint64_t> GridWorld::Simulation::get_state_binary(
     push_singleton_into_buffer<STickCounter>(buf, reg);
     push_singleton_into_buffer<SWorld>(buf, reg);
     push_singleton_into_buffer<SEventsLog>(buf, reg);
+    push_singleton_into_buffer<RNG>(buf, reg);
 
     push_components_into_buffer<Position>(buf, reg);
     push_components_into_buffer<Moveable>(buf, reg);
@@ -1786,6 +1805,7 @@ void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
         offset += copy_singleton_from_buffer<STickCounter>(bin + offset, bin_end, tmp);
         offset += copy_singleton_from_buffer<SWorld>(bin + offset, bin_end, tmp);
         offset += copy_singleton_from_buffer<SEventsLog>(bin + offset, bin_end, tmp);
+        offset += copy_singleton_from_buffer<RNG>(bin + offset, bin_end, tmp);
     }
 
     {
@@ -1858,13 +1878,16 @@ void GridWorld::Simulation::run_command(int64_t argc, const char* argv[], comman
 
             if (argc == 1)
             {
-                // no other args, randomize all RNG components
+                // no other args, randomize all RNG components + singleton
                 auto rng_view = reg.view<RNG>();
                 for (EntityId eid : rng_view)
                 {
                     RNG& rng = rng_view.get(eid);
                     rng.seed(pcg_extras::seed_seq_from<std::random_device>());
                 }
+
+                RNG& srng = reg.ctx<RNG>();
+                srng.seed(pcg_extras::seed_seq_from<std::random_device>());
             }
             else if (argc == 2)
             {

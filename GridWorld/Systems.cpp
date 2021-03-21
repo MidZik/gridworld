@@ -558,6 +558,7 @@ void GridWorld::Systems::evolution(registry & reg)
     {
         SWorld& world = reg.ctx<SWorld>();
         SEventsLog& event_log = reg.ctx<SEventsLog>();
+        RNG& srng = reg.ctx<RNG>();
         Event evo_event{ "evolution", Event::variant_map() };
         Event::variant_map& evo_data_map = std::get<Event::variant_map>(evo_event.data);
 
@@ -708,7 +709,7 @@ void GridWorld::Systems::evolution(registry & reg)
             name.minor_name = "T" + std::to_string(tick_counter.tick) + "-ROOT";
 
             auto& rng = reg.assign<RNG>(eid);
-            rng.seed(tick_counter.tick * 3 + i);
+            rng.seed(srng());
 
             auto randf = [&rng]()
             {
