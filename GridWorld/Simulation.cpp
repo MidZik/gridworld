@@ -15,36 +15,6 @@
 #include "Systems.h"
 #include "Event.h"
 
-using unique_lock = std::unique_lock<std::shared_mutex>;
-using shared_lock = std::shared_lock<std::shared_mutex>;
-
-class shared_pause_lock
-{
-public:
-    shared_pause_lock(std::atomic<uint32_t>& pause_requests,
-        std::condition_variable_any& no_pauses_requested,
-        std::shared_mutex& shared_mutex) :
-        pause_requests(pause_requests),
-        no_pauses_requested(no_pauses_requested),
-        shared_mutex(shared_mutex)
-    {
-        ++pause_requests;
-        shared_mutex.lock_shared();
-    };
-
-    ~shared_pause_lock()
-    {
-        shared_mutex.unlock_shared();
-        if (--pause_requests == 0)
-        {
-            no_pauses_requested.notify_one();
-        }
-    }
-private:
-    std::atomic<uint32_t>& pause_requests;
-    std::condition_variable_any& no_pauses_requested;
-    std::shared_mutex& shared_mutex;
-};
 
 namespace Reflect
 {
@@ -1064,7 +1034,23 @@ GridWorld::registry create_empty_simulation_registry()
 GridWorld::Simulation::Simulation()
 {
     reg = create_empty_simulation_registry();
-    stop_requested = false;
+}
+
+uint64_t GridWorld::Simulation::tick()
+{
+    using namespace GridWorld::Systems;
+
+    tick_increment(reg);
+    simple_brain_seer(reg);
+    simple_brain_calc(reg);
+    simple_brain_mover(reg);
+    random_movement(reg);
+    movement(reg);
+    predation(reg);
+    evolution(reg);
+    finalize_event_log(reg);
+
+    return get_tick();
 }
 
 uint64_t GridWorld::Simulation::get_tick() const
@@ -1072,13 +1058,10 @@ uint64_t GridWorld::Simulation::get_tick() const
     return reg.ctx<Component::STickCounter>().tick;
 }
 
-std::tuple<std::string, uint64_t> GridWorld::Simulation::get_state_json() const
+std::string GridWorld::Simulation::get_state_json() const
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
-
-    //shared_lock sl(simulation_mutex);
-    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     StringBuffer buf;
     buf.Reserve(1024 * 100);
@@ -1157,7 +1140,7 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_state_json() const
 
     writer.EndObject(); // root
 
-    return std::make_tuple(buf.GetString(), get_tick());
+    return buf.GetString();
 }
 
 const char * state_schema = R"xx(
@@ -1203,14 +1186,6 @@ void GridWorld::Simulation::set_state_json(std::string json)
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
-
-    // Check if sim is running at the start before parsing occurs,
-    // since it is unlikely that the simulation will no longer be running
-    // when the parsing is finished.
-    if (is_running())
-    {
-        throw std::exception("set_state_json cannot be used while simulation is running.");
-    }
 
     registry tmp = create_empty_simulation_registry();
 
@@ -1296,50 +1271,21 @@ void GridWorld::Simulation::set_state_json(std::string json)
         json_read_tags_array<RandomMover>(tmp, components["RandomMover"]);
     }
 
-    // Do the proper write mutex/running check here, 
-    // after the parsed registry is ready to be copied in.
-    unique_lock ul(simulation_mutex);
-
-    // check if the sim is running again, on the off chance
-    // that its running state changed while the
-    // json document was being parsed.
-    if (is_running())
-    {
-        throw std::exception("set_state_json cannot be used while simulation is running.");
-    }
-
     reg = std::move(tmp);
 }
 
 uint64_t GridWorld::Simulation::create_entity()
 {
-    unique_lock ul(simulation_mutex);
-
-    if (is_running())
-    {
-        throw std::exception("create_entity cannot be used while simulation is running.");
-    }
-
     return to_integral(reg.create());
 }
 
 void GridWorld::Simulation::destroy_entity(uint64_t eid)
 {
-    unique_lock ul(simulation_mutex);
-
-    if (is_running())
-    {
-        throw std::exception("destroy_entity cannot be used while simulation is running.");
-    }
-
     reg.destroy(EntityId{ eid });
 }
 
-std::tuple<std::vector<uint64_t>, uint64_t> GridWorld::Simulation::get_all_entities() const
+std::vector<uint64_t> GridWorld::Simulation::get_all_entities() const
 {
-    //shared_lock sl(simulation_mutex);
-    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
-
     std::vector<uint64_t> result;
     result.reserve(reg.size());
     const GridWorld::EntityId* data = reg.data();
@@ -1351,36 +1297,7 @@ std::tuple<std::vector<uint64_t>, uint64_t> GridWorld::Simulation::get_all_entit
         }
     }
 
-    return std::make_tuple(result, get_tick());
-}
-
-void GridWorld::Simulation::start_simulation()
-{
-    std::lock_guard control_guard(control_mutex);
-    if (!is_running())
-    {
-        // Since the state may have been changed externally while the simulation
-        // wasn't running, ensure any hidden state is properly synced up
-        Systems::Util::rebuild_world(reg);
-
-        stop_requested = false;
-        simulation_thread = std::thread(&Simulation::simulation_loop, this);
-    }
-}
-
-void GridWorld::Simulation::stop_simulation()
-{
-    std::lock_guard control_guard(control_mutex);
-    if (is_running())
-    {
-        stop_requested = true;
-        simulation_thread.join();
-    }
-}
-
-bool GridWorld::Simulation::is_running() const
-{
-    return simulation_thread.joinable();
+    return result;
 }
 
 void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string component_name)
@@ -1389,13 +1306,6 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     using namespace Reflect;
 
     EntityId eid = EntityId(eid_int);
-
-    unique_lock ul(simulation_mutex);
-
-    if (is_running())
-    {
-        throw std::exception("assign_component cannot be used while simulation is running.");
-    }
 
     if (component_name == com_name<Position>())
     {
@@ -1443,7 +1353,7 @@ void GridWorld::Simulation::assign_component(uint64_t eid_int, std::string compo
     }
 }
 
-std::tuple<std::string, uint64_t> GridWorld::Simulation::get_component_json(uint64_t eid_int, std::string component_name) const
+std::string GridWorld::Simulation::get_component_json(uint64_t eid_int, std::string component_name) const
 {
     using namespace Component;
     using namespace Reflect;
@@ -1453,9 +1363,6 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_component_json(uint
     EntityId eid = EntityId(eid_int);
     StringBuffer buf;
     Writer<StringBuffer> writer(buf);
-
-    //shared_lock sl(simulation_mutex);
-    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     if (component_name == com_name<Position>())
     {
@@ -1502,7 +1409,7 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_component_json(uint
         throw std::exception(("Unknown component type passed to get_component_json: " + component_name).c_str());
     }
 
-    return std::make_tuple(buf.GetString(), get_tick());
+    return buf.GetString();
 }
 
 void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string component_name)
@@ -1511,13 +1418,6 @@ void GridWorld::Simulation::remove_component(uint64_t eid_int, std::string compo
     using namespace Reflect;
 
     EntityId eid = EntityId(eid_int);
-
-    unique_lock ul(simulation_mutex);
-
-    if (is_running())
-    {
-        throw std::exception("remove_component cannot be used while simulation is running.");
-    }
 
     if (component_name == com_name<Position>())
     {
@@ -1571,13 +1471,6 @@ void GridWorld::Simulation::replace_component(uint64_t eid_int, std::string comp
     using namespace Reflect;
 
     EntityId eid = EntityId(eid_int);
-
-    unique_lock ul(simulation_mutex);
-
-    if (is_running())
-    {
-        throw std::exception("replace_component cannot be used while simulation is running.");
-    }
 
     if (component_name == com_name<Position>())
     {
@@ -1638,22 +1531,19 @@ std::vector<std::string> GridWorld::Simulation::get_component_names() const
     };
 }
 
-std::tuple<std::vector<std::string>, uint64_t> GridWorld::Simulation::get_entity_component_names(uint64_t eid) const
+std::vector<std::string> GridWorld::Simulation::get_entity_component_names(uint64_t eid) const
 {
     using namespace Reflect;
     std::vector<std::string> result;
-
-    //shared_lock sl(simulation_mutex);
-    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     reg.visit(EntityId(eid), [&result](ENTT_ID_TYPE com_id)
     {
         result.push_back(id_to_com_name(com_id));
     });
-    return std::make_tuple(result, get_tick());
+    return result;
 }
 
-std::tuple<std::string, uint64_t> GridWorld::Simulation::get_singleton_json(std::string singleton_name) const
+std::string GridWorld::Simulation::get_singleton_json(std::string singleton_name) const
 {
     using namespace Component;
     using namespace Reflect;
@@ -1662,9 +1552,6 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_singleton_json(std:
 
     StringBuffer buf;
     Writer<StringBuffer> writer(buf);
-
-    //shared_lock sl(simulation_mutex);
-    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     if (singleton_name == com_name<SWorld>())
     {
@@ -1687,20 +1574,13 @@ std::tuple<std::string, uint64_t> GridWorld::Simulation::get_singleton_json(std:
         throw std::exception(("Unknown component type passed to get_singleton_json: " + singleton_name).c_str());
     }
 
-    return std::make_tuple(buf.GetString(), get_tick());
+    return buf.GetString();
 }
 
 void GridWorld::Simulation::set_singleton_json(std::string singleton_name, std::string singleton_json)
 {
     using namespace Component;
     using namespace Reflect;
-
-    if (is_running())
-    {
-        throw std::exception("set_singleton_json cannot be used while simulation is running.");
-    }
-
-    unique_lock ul(simulation_mutex);
 
     if (singleton_name == com_name<SWorld>())
     {
@@ -1735,22 +1615,13 @@ std::vector<std::string> GridWorld::Simulation::get_singleton_names() const
     };
 }
 
-void GridWorld::Simulation::set_tick_event_callback(tick_event_callback_function callback)
-{
-    unique_lock ul(simulation_mutex);
-    tick_event_callback = callback;
-}
-
-std::tuple<std::vector<char>, uint64_t> GridWorld::Simulation::get_state_binary() const
+std::vector<char> GridWorld::Simulation::get_state_binary() const
 {
     using namespace GridWorld::Component;
     using namespace GridWorld::Binary;
 
     buffer buf;
     buf.reserve(1024 * 30);
-
-    //shared_lock sl(simulation_mutex);
-    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
 
     push_array_into_buffer(buf, reg.data(), reg.size());
 
@@ -1772,7 +1643,7 @@ std::tuple<std::vector<char>, uint64_t> GridWorld::Simulation::get_state_binary(
 
     push_tags_into_buffer<RandomMover>(buf, reg);
 
-    return std::make_tuple(buf, get_tick());
+    return buf;
 }
 
 void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
@@ -1780,13 +1651,6 @@ void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
     //using namespace GridWorld::JSON;
     //using namespace rapidjson;
     using namespace GridWorld::Binary;
-
-    unique_lock ul(simulation_mutex);
-
-    if (is_running())
-    {
-        throw std::exception("set_state_binary cannot be used while simulation is running.");
-    }
 
     const char* bin_end = bin + size;
     size_t offset = 0;
@@ -1825,7 +1689,7 @@ void GridWorld::Simulation::set_state_binary(const char* bin, size_t size)
     reg = std::move(tmp);
 }
 
-uint64_t GridWorld::Simulation::get_events_last_tick(event_callback_function callback)
+void GridWorld::Simulation::get_events_last_tick(event_callback_function callback)
 {
     using namespace GridWorld::JSON;
     using namespace rapidjson;
@@ -1833,17 +1697,12 @@ uint64_t GridWorld::Simulation::get_events_last_tick(event_callback_function cal
     StringBuffer buf;
     Writer<StringBuffer> writer(buf);
 
-    //shared_lock sl(simulation_mutex);
-    shared_pause_lock pl(pause_requests, no_pauses_requested, simulation_mutex);
-
     for (const Events::Event& e : reg.ctx<Component::SEventsLog>().events_last_tick)
     {
         json_write(e.data, writer);
         callback(e.name.c_str(), buf.GetString());
         buf.Clear();
     }
-
-    return get_tick();
 }
 
 void GridWorld::Simulation::run_command(int64_t argc, const char* argv[], command_result_callback_function callback)
@@ -1869,13 +1728,6 @@ void GridWorld::Simulation::run_command(int64_t argc, const char* argv[], comman
 
         if (command == "randomize")
         {
-            unique_lock ul(simulation_mutex);
-
-            if (is_running())
-            {
-                throw std::exception("Command 'randomize' cannot be used while simulation is running.");
-            }
-
             if (argc == 1)
             {
                 // no other args, randomize all RNG components + singleton
@@ -1916,63 +1768,5 @@ void GridWorld::Simulation::run_command(int64_t argc, const char* argv[], comman
     catch (const std::exception& e)
     {
         callback(e.what(), nullptr);
-    }
-
-}
-
-void GridWorld::Simulation::request_stop()
-{
-    stop_requested = true;
-}
-
-void update_tick(GridWorld::registry& reg)
-{
-    using namespace GridWorld::Systems;
-
-    tick_increment(reg);
-    simple_brain_seer(reg);
-    simple_brain_calc(reg);
-    simple_brain_mover(reg);
-    random_movement(reg);
-    movement(reg);
-    predation(reg);
-    evolution(reg);
-    finalize_event_log(reg);
-}
-
-void GridWorld::Simulation::simulation_loop()
-{
-    unique_lock ul(simulation_mutex);
-    while (!stop_requested)
-    {
-        // For the update, aquire an exclusive lock to prevent reads during the sim update.
-        // However, after the write is done, we do not need to (and should not) keep a
-        // shared lock afterwards, because the tick event handler might need to make its
-        // own reads, and shared mutexes do not allow recursion, so it would likely 
-        // cause deadlocks.
-
-        // This is safe only as long as ALL methods that require write access only allow
-        // a write to continue when the simulation loop is not running. That way, as long as
-        // a thread is inside this method, no writes will succeed, and we have a de-facto
-        // read safe state inside this method without a shared lock.
-
-        while (pause_requests != 0)
-        {
-            no_pauses_requested.wait(simulation_mutex);
-        }
-
-        update_tick(reg);
-
-        if (tick_event_callback != nullptr)
-        {
-            ul.unlock();
-            const auto& events_last_tick = reg.ctx<Component::SEventsLog>().events_last_tick;
-            uint64_t flags =
-                // BIT 0: 1 if events have occured last tick, 0 otherwise
-                1 * (events_last_tick.size() > 0);
-
-            tick_event_callback(get_tick(), flags);
-            ul.lock();
-        }
     }
 }
